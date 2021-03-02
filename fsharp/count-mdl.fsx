@@ -3,31 +3,44 @@
 open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.SyntaxTree
 open Fantomas
-
-let source =
-    System.IO.File.ReadAllText(System.IO.Path.Combine(__SOURCE_DIRECTORY__, __SOURCE_FILE__))
-    |> SourceOrigin.SourceString
-
-let fileName = "tmp.fsx"
-
-let parsingOptions =
-    { FSharpParsingOptions.Default with
-          SourceFiles = [| fileName |] }
+open System.IO
 
 let checker = FSharpChecker.Create()
 
-let ast =
-    async {
-        let! trees = CodeFormatter.ParseAsync(fileName, source, parsingOptions, checker)
-        return (Array.map fst >> Array.head) trees
-    }
-    |> Async.RunSynchronously
+let countInFile (path: string) =
+    let source = File.ReadAllText(path) |> SourceOrigin.SourceString
+    let ext = if (Path.GetExtension(path) = ".fsi") then ".fsi" else ".fsx"
+    let fileName = $"{System.Guid.NewGuid()}{ext}"
+    let parsingOptions =
+        { FSharpParsingOptions.Default with
+              SourceFiles = [| fileName |] }
+    let ast =
+        async {
+            let! trees = CodeFormatter.ParseAsync(fileName, source, parsingOptions, checker)
+            return (Array.map fst >> Array.head) trees
+        }
+        |> Async.RunSynchronously
 
-match ast with
-| ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) ->
-    modules
-    |> List.sumBy
-        (function
-        | SynModuleOrNamespace (decls = decls) -> List.length decls)
-    |> printfn "Found %i declarations"
-| _ -> printfn "No declarations found"
+    match ast with
+    | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) ->
+        modules
+        |> List.sumBy
+            (function
+            | SynModuleOrNamespace (decls = decls) -> List.length decls)
+    | _ -> 0
+
+let countInFolder (path: string) : unit =
+    let files =
+        seq {
+            yield! Directory.EnumerateFiles(path, "*.fs", SearchOption.AllDirectories)
+            yield! Directory.EnumerateFiles(path, "*.fsi", SearchOption.AllDirectories)
+            yield! Directory.EnumerateFiles(path, "*.fsx",SearchOption.AllDirectories)
+        }
+        |> Seq.filter (fun path -> not (path.Contains("obj/") || path.Contains("tests/")  ))
+
+    files
+    |> Seq.map (fun path -> path, countInFile path)
+    |> Seq.sortByDescending snd
+    |> Seq.iter (fun (p,i) -> printfn "%s : %i" p i)
+
+countInFolder "/workspace/scripts/fantomas"
