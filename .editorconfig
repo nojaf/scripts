@@ -1,0 +1,7 @@
+[*.fsx]
+fsharp_newline_between_type_definition_and_members = true
+fsharp_align_function_signature_to_indentation = true
+fsharp_alternative_long_member_definitions = true
+fsharp_multi_line_lambda_closing_newline = true
+fsharp_disable_elmish_syntax = false
+fsharp_keep_indent_in_branch = true
