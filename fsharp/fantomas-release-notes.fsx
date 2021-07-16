@@ -1,14 +1,14 @@
 #r "nuget: FSharp.Data, 4.0.1"
 
 // 2021-02-26T08:19:07.2400000
-// is:issue is:closed closed:>=2021-02-27
+// is:issue is:closed closed:>=2021-05-01
 // [...document.querySelectorAll(".opened-by")].map(span => span.textContent.match(/#\d+/)[0]).map(a => parseInt(a.substring(1),0)).join(';')
 
 open FSharp.Data
 open System
 
 let fixedIssues =
-    "1529;1526;1522;1521;1518;1515;1510;1508;1501;1499;1498;1494;1347;1235;594"
+    "1812;1774;1234"
     |> fun issues -> issues.Split(';')
     |> Array.map (int)
     |> Array.toList
