@@ -14,7 +14,8 @@ let parsingOptions =
     { FSharpParsingOptions.Default with
           SourceFiles = [| fileName |] }
 
-let source = "
+let source =
+    "
 type Foo =
     | One = 1
 
