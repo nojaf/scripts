@@ -10,7 +10,7 @@ open System
 let fixedIssues =
     "1812;1774;1234"
     |> fun issues -> issues.Split(';')
-    |> Array.map (int)
+    |> Array.map int
     |> Array.toList
 
 
@@ -22,26 +22,26 @@ type GithubIssuePage = HtmlProvider<SampleLink>
 
 let getTitle issue =
     let url =
-        sprintf "https://github.com/fsprojects/fantomas/issues/%i" issue
+        $"https://github.com/fsprojects/fantomas/issues/%i{issue}"
 
     let page = GithubIssuePage.Load(url)
 
     page.Html.CssSelect(".js-issue-title")
     |> List.tryHead
-    |> Option.map
-        (fun t ->
-            let title = t.InnerText().Trim()
+    |> Option.map (fun t ->
+        let title = t.InnerText().Trim()
 
-            let dot =
-                if title.EndsWith(".") then
-                    String.Empty
-                else
-                    "."
+        let dot =
+            if title.EndsWith(".") then
+                String.Empty
+            else
+                "."
 
-            sprintf "* Fix %s%s [#%i](%s)" title dot issue url)
+        $"* Fix %s{title}%s{dot} [#%i{issue}](%s{url})"
+    )
 
 let issues =
     List.choose getTitle fixedIssues
-    |> String.concat (Environment.NewLine)
+    |> String.concat Environment.NewLine
 
-printfn "%s" issues
+printfn $"%s{issues}"

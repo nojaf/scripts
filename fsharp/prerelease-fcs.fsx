@@ -2,29 +2,33 @@
 #r "nuget:FSharp.Compiler.Service, 40.0.1-preview.21330.7"
 
 open FSharp.Compiler.Text
-open FSharp.Compiler.Syntax
 open FSharp.Compiler.CodeAnalysis
 
-let fileName = "tmp.fsx"
+let fileName = "tmp.fsi"
 let checker = FSharpChecker.Create()
 
 let parsingOptions =
     { FSharpParsingOptions.Default with
           SourceFiles = [| fileName |] }
 
-let source =
-    """
-#I __SOURCE_DIRECTORY__
-    """
-    |> SourceText.ofString
-
-let ast =
+let getAst fileName source =
     async {
-        let! tree = checker.ParseFile(fileName, source, parsingOptions)
+        let! tree = checker.ParseFile(fileName, source |> SourceText.ofString, parsingOptions)
         return tree.ParseTree
     }
     |> Async.RunSynchronously
 
-match ast with
-| ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) -> printfn "%A" modules
-| _ -> ()
+getAst
+    "tmp.fsi"
+    """
+#I __SOURCE_DIRECTORY__
+    """
+
+getAst
+    "tmp.fsx"
+    """
+module foo
+
+// bar
+// baz
+    """
