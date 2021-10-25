@@ -9,14 +9,15 @@ let fileName = "tmp.fsi"
 let checker = FSharpChecker.Create()
 
 let parsingOptions =
-    { FSharpParsingOptions.Default with
-          SourceFiles = [| fileName |] }
+    { FSharpParsingOptions.Default with SourceFiles = [| fileName |] }
 
 let getAst fileName source =
     async {
         let! tree = checker.ParseFile(fileName, source |> SourceText.ofString, parsingOptions)
+
         if not (Seq.isEmpty tree.Diagnostics) then
             printfn "%A" tree.Diagnostics
+
         return tree.ParseTree
     }
     |> Async.RunSynchronously

@@ -21,8 +21,7 @@ let countInFile (path: string) =
     let fileName = $"{System.Guid.NewGuid()}{ext}"
 
     let parsingOptions =
-        { FSharpParsingOptions.Default with
-              SourceFiles = [| fileName |] }
+        { FSharpParsingOptions.Default with SourceFiles = [| fileName |] }
 
     let ast =
         async {
@@ -34,9 +33,10 @@ let countInFile (path: string) =
     match ast with
     | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) ->
         modules
-        |> List.sumBy
-            (function
-            | SynModuleOrNamespace (decls = decls) -> List.length decls)
+        |> List.sumBy (
+            function
+            | SynModuleOrNamespace (decls = decls) -> List.length decls
+        )
     | _ -> 0
 
 let countInFolder (path: string) : unit =

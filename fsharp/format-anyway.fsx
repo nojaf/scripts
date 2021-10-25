@@ -14,8 +14,7 @@ let source =
     |> File.ReadAllText
 
 let parsingOptions =
-    { FSharpParsingOptions.Default with
-          SourceFiles = [| fileName |] }
+    { FSharpParsingOptions.Default with SourceFiles = [| fileName |] }
 
 let checker = FSharpChecker.Create()
 
