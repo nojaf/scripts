@@ -53,4 +53,4 @@ let countInFolder (path: string) : unit =
     |> Seq.sortByDescending snd
     |> Seq.iter (fun (p, i) -> printfn "%s : %i" p i)
 
-countInFolder "/workspace/scripts/fantomas"
+countInFolder @"C:\Users\fverdonck\Projects\fantomas"
