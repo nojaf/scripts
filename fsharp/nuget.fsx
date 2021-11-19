@@ -7,63 +7,15 @@ open NuGet.Versioning
 open NuGet.Protocol
 open NuGet.Protocol.Core.Types
 
-let fourSixAlphaOne = SemanticVersion.Parse("4.6.0-alpha-001")
-let fourSixAlphaThree = SemanticVersion.Parse("4.6.0-alpha-003")
-let fourSixBetaThree = SemanticVersion.Parse("4.6.0-alpha-004")
+type SemanticVersion with
 
-fourSixAlphaThree.CompareTo fourSixAlphaOne
-
-let private replaceAlphaBetaAndDashes (v: string) =
-    System.Text.RegularExpressions.Regex.Replace(v, "(\\-|alpha|beta)*", "")
-
-let (|Stable|Alpha|Beta|) (v: SemanticVersion) : Choice<unit, int, int> =
-    if v.Release.StartsWith("alpha") then
-        replaceAlphaBetaAndDashes v.Release
-        |> Int32.Parse
-        |> Choice2Of3
-    elif v.Release.StartsWith("beta") then
-        replaceAlphaBetaAndDashes v.Release
-        |> Int32.Parse
-        |> Choice3Of3
-    else
-        Choice1Of3()
-
-let isNewerOrSameVersion (source: SemanticVersion) (target: SemanticVersion) : bool =
-    let isExactlyTheSame =
-        source.Major = target.Major
-        && source.Minor = target.Minor
-        && source.Patch = target.Patch
-        && source.Release = target.Release
-
-    let majorIsHigher = source.Major < target.Major
-
-    let minorIsHigher =
-        source.Major = target.Major
-        && source.Minor < target.Minor
-
-    let patchIsHigher =
-        source.Major = target.Major
-        && source.Minor = target.Minor
-        && source.Patch < target.Patch
-
-    let prereleaseIsHigher =
-        source.Major = target.Major
-        && source.Minor = target.Minor
-        && source.Patch = target.Patch
-        && (
-            match source, target with
-            | Beta _, Alpha _ -> false
-            | Alpha _, Beta _ -> true
-            | Alpha sa, Alpha ta -> ta > sa
-            | Beta sb, Beta tb -> tb > sb
-            | _ -> false
-        )
-
-    isExactlyTheSame
-    || majorIsHigher
-    || minorIsHigher
-    || patchIsHigher
-    || prereleaseIsHigher
+    member this.Alpha: int option =
+        if isNull this.Release then
+            None
+        else
+            this.Release.Replace("alpha-", "")
+            |> Int32.TryParse
+            |> fun (success, alpha) -> if success then Some alpha else None
 
 async {
     let logger = NullLogger.Instance
@@ -71,25 +23,114 @@ async {
 
     let cache = new SourceCacheContext()
 
-    let repository =
-        Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json")
+    let repository = Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json")
 
     let! resource =
         repository.GetResourceAsync<FindPackageByIdResource>()
         |> Async.AwaitTask
 
     let! versions =
-        resource.GetAllVersionsAsync(
-            "fantomas-tool",
-            cache,
-            logger,
-
-            cancellationToken
-        )
+        resource.GetAllVersionsAsync("fantomas-tool", cache, logger, cancellationToken)
         |> Async.AwaitTask
 
     versions
-    |> Seq.filter (isNewerOrSameVersion fourSixBetaThree)
-    |> Seq.iter (printfn "%A")
+    |> Seq.filter (fun v ->
+        v.Major = 4
+        && v.Minor = 6
+        && (Option.map (fun alpha -> alpha >= 4) v.Alpha
+            |> Option.defaultValue true)
+    )
+    |> Seq.iter (fun v -> printfn "%A" v.Release)
 }
+|> Async.RunSynchronously
+
+
+async {
+    // Elmish
+    let logger = NullLogger.Instance
+    let cancellationToken = CancellationToken.None
+
+    let cache = new SourceCacheContext()
+
+    let repository = Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json")
+
+    let! findPackageByIdResource =
+        repository.GetResourceAsync<FindPackageByIdResource>()
+        |> Async.AwaitTask
+
+    let! elmish =
+        let version = NuGetVersion.Parse("3.1")
+
+        findPackageByIdResource.GetDependencyInfoAsync("Elmish", version, cache, logger, cancellationToken)
+        |> Async.AwaitTask
+
+    let! packageMetadataResource =
+        repository.GetResourceAsync<PackageMetadataResource>()
+        |> Async.AwaitTask
+
+    let! meta =
+        packageMetadataResource.GetMetadataAsync(elmish.PackageIdentity, cache, logger, cancellationToken)
+        |> Async.AwaitTask
+
+    printfn "%A" meta.LicenseUrl
+
+    ()
+}
+|> Async.RunSynchronously
+
+type LicenseInformationResponse =
+    { PackageId: string
+      Version: string
+      License: string option
+      LicenseUrl: string }
+
+let getLicensesInfo (packages: (string * string) seq) : Async<LicenseInformationResponse array> =
+    async {
+        let logger = NullLogger.Instance
+        let cancellationToken = CancellationToken.None
+
+        let cache = new SourceCacheContext()
+
+        let repository = Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json")
+
+        let! findPackageByIdResource =
+            repository.GetResourceAsync<FindPackageByIdResource>()
+            |> Async.AwaitTask
+
+        let! packageMetadataResource =
+            repository.GetResourceAsync<PackageMetadataResource>()
+            |> Async.AwaitTask
+
+        let findPackage (packageId, version) =
+            async {
+                let version = NuGetVersion.Parse(version)
+
+                let! packageInfo =
+                    findPackageByIdResource.GetDependencyInfoAsync(packageId, version, cache, logger, cancellationToken)
+                    |> Async.AwaitTask
+
+                let! meta =
+                    packageMetadataResource.GetMetadataAsync(
+                        packageInfo.PackageIdentity,
+                        cache,
+                        logger,
+                        cancellationToken
+                    )
+                    |> Async.AwaitTask
+
+                return
+                    { PackageId = packageInfo.PackageIdentity.Id
+                      Version = string packageInfo.PackageIdentity.Version
+                      License =
+                        meta.LicenseMetadata
+                        |> Option.ofObj
+                        |> Option.map (fun license -> string license.LicenseExpression)
+                      LicenseUrl = string meta.LicenseUrl }
+            }
+
+        return! packages |> Seq.map findPackage |> Async.Parallel
+    }
+
+getLicensesInfo [ "CliWrap", "3.3.3"
+                  "CommandLineParser.FSharp", "2.8" ]
 |> Async.RunSynchronously

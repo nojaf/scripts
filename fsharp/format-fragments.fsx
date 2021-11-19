@@ -9,8 +9,7 @@ open FSharp.Compiler.SourceCodeServices
 
 let checker = FSharpChecker.Create()
 
-let config =
-    { FormatConfig.FormatConfig.Default with StrictMode = true }
+let config = { FormatConfig.FormatConfig.Default with StrictMode = true }
 
 type ASTFragment = Fragment of ParsedInput * Range
 
@@ -98,8 +97,7 @@ let formatFragment (defines: string list) (Fragment (ast, range)) (fileName: str
 let formatFragments (filePath: string) : unit =
     let extension = Path.GetExtension(filePath)
 
-    let fileNameWithoutExtension =
-        Path.GetFileNameWithoutExtension(filePath)
+    let fileNameWithoutExtension = Path.GetFileNameWithoutExtension(filePath)
 
     let sourceOrigin =
         File.ReadAllText filePath

@@ -8,21 +8,19 @@ open FSharp.Data
 open System
 
 let fixedIssues =
-    "1866"
+    "1970;1969;1965;1962;1961;1954;1953;1945;1944;1933;1918;1898;1874"
     |> fun issues -> issues.Split(';')
     |> Array.map int
     |> Array.toList
 
 
 [<Literal>]
-let SampleLink =
-    "https://github.com/fsprojects/fantomas/issues/363"
+let SampleLink = "https://github.com/fsprojects/fantomas/issues/363"
 
 type GithubIssuePage = HtmlProvider<SampleLink>
 
 let getTitle issue =
-    let url =
-        $"https://github.com/fsprojects/fantomas/issues/%i{issue}"
+    let url = $"https://github.com/fsprojects/fantomas/issues/%i{issue}"
 
     let page = GithubIssuePage.Load(url)
 

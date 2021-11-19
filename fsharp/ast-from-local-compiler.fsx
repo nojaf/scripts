@@ -8,16 +8,15 @@ let fileName = "/tmp.fsx"
 let checker = FSharpChecker.Create()
 
 let parsingOptions =
-    { FSharpParsingOptions.Default with SourceFiles = [| fileName |] }
+    { FSharpParsingOptions.Default with
+        SourceFiles = [| fileName |]
+        LangVersionText = "preview" }
 
 let source =
     """
-let a = list.[..^0]   // 1,2,3,4,5
-let b = list.[..^1]   // 1,2,3,4
-let c = list.[0..^1]  // 1,2,3,4
-let d = list.[^1..]   // 4,5
-let e = list.[^0..]   // 5
-let f = list.[^2..^1] // 3,4
+match () with
+| x
+| _ -> ()
 """
 
 let ast =
@@ -28,3 +27,9 @@ let ast =
         result.ParseTree
 
 printf "%A" ast
+
+// #r @"C:\Users\fverdonck\Projects\fsharp\artifacts\bin\FSharp.Core\Debug\netstandard2.0\FSharp.Core.dll"
+// #r @"C:\Users\fverdonck\Projects\fsharp\artifacts\bin\FSharp.Compiler.Service\Debug\netstandard2.0\FSharp.Compiler.Service.dll"
+
+// FSharp.Compiler.Syntax.PrettyNaming.AddBackticksToIdentifierIfNeeded "mod"
+// |> printfn "FSharp.Compiler.Syntax.PrettyNaming.AddBackticksToIdentifierIfNeeded :  %s"

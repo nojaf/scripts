@@ -19,8 +19,7 @@ type FantomasDaemon =
 
 // Server
 
-let daemon: FantomasDaemon =
-    { Version = fun () -> Async.result "4.6" }
+let daemon: FantomasDaemon = { Version = fun () -> Async.result "4.6" }
 
 let fableWebApp: WebPart =
     Remoting.createApi ()
