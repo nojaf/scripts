@@ -131,6 +131,7 @@ let getLicensesInfo (packages: (string * string) seq) : Async<LicenseInformation
         return! packages |> Seq.map findPackage |> Async.Parallel
     }
 
-getLicensesInfo [ "CliWrap", "3.3.3"
-                  "CommandLineParser.FSharp", "2.8" ]
+getLicensesInfo
+    [ "CliWrap", "3.3.3"
+      "CommandLineParser.FSharp", "2.8" ]
 |> Async.RunSynchronously

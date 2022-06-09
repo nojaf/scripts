@@ -46,26 +46,28 @@ let updateModuleInSig (ast: ParsedInput) (mdl: SynModuleOrNamespaceSig) : Parsed
 let splitModule (ast: ParsedInput) (mn: SynModuleOrNamespace) : ASTFragment list =
     match mn with
     | SynModuleOrNamespace.SynModuleOrNamespace (lid, isRec, kind, decls, xmlDoc, attribs, ao, range) ->
-        decls
-        |> List.map (fun d ->
-            let parsedInput =
-                SynModuleOrNamespace(lid, isRec, kind, [ d ], xmlDoc, attribs, ao, range)
-                |> updateModuleInImpl ast
 
-            ASTFragment.Fragment(parsedInput, d.Range)
-        )
+    decls
+    |> List.map (fun d ->
+        let parsedInput =
+            SynModuleOrNamespace(lid, isRec, kind, [ d ], xmlDoc, attribs, ao, range)
+            |> updateModuleInImpl ast
+
+        ASTFragment.Fragment(parsedInput, d.Range)
+    )
 
 let splitModuleSig (ast: ParsedInput) (mn: SynModuleOrNamespaceSig) : ASTFragment list =
     match mn with
     | SynModuleOrNamespaceSig.SynModuleOrNamespaceSig (lid, isRec, kind, decls, xmlDoc, attribs, ao, range) ->
-        decls
-        |> List.map (fun d ->
-            let parsedInput =
-                SynModuleOrNamespaceSig(lid, isRec, kind, [ d ], xmlDoc, attribs, ao, range)
-                |> updateModuleInSig ast
 
-            ASTFragment.Fragment(parsedInput, d.Range)
-        )
+    decls
+    |> List.map (fun d ->
+        let parsedInput =
+            SynModuleOrNamespaceSig(lid, isRec, kind, [ d ], xmlDoc, attribs, ao, range)
+            |> updateModuleInSig ast
+
+        ASTFragment.Fragment(parsedInput, d.Range)
+    )
 
 let splitParsedInput (ast: ParsedInput) : ASTFragment list =
     match ast with
@@ -79,8 +81,7 @@ let formatFragment (defines: string list) (Fragment (ast, range)) (fileName: str
         try
             let! formatted = CodeFormatter.FormatASTAsync(ast, fileName, defines, None, config)
             File.WriteAllText(fileName, formatted)
-        with
-        | ex ->
+        with ex ->
             let errorFile =
                 Path.GetFileNameWithoutExtension(fileName)
                 |> sprintf "%s_error.txt"

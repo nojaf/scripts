@@ -6,10 +6,12 @@ open Fable.Remoting.Server
 open Fable.Remoting.Suave
 
 type FantomasConfiguration =
-    { /// Name of the setting, data type
-      Options: Dictionary<string, string>
-      /// Name of data type, allowed values
-      EnumOptions: Dictionary<string, string array> }
+    {
+        /// Name of the setting, data type
+        Options: Dictionary<string, string>
+        /// Name of data type, allowed values
+        EnumOptions: Dictionary<string, string array>
+    }
 
 type FantomasDaemon =
     // abstract member Configuration : unit -> FantomasConfiguration
