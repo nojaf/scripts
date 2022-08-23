@@ -8,9 +8,7 @@ open System.IO
 let checker = FSharpChecker.Create()
 
 let countInFile (path: string) =
-    let source =
-        File.ReadAllText(path)
-        |> SourceOrigin.SourceString
+    let source = File.ReadAllText(path) |> SourceOrigin.SourceString
 
     let ext =
         if (Path.GetExtension(path) = ".fsi") then

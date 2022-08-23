@@ -9,9 +9,7 @@ open System.IO
 let fileName =
     @"C:\Users\fverdonck\Projects\fantomas\src\Fantomas\CodeFormatterImpl.fs"
 
-let source =
-    Path.Combine(__SOURCE_DIRECTORY__, "..", fileName)
-    |> File.ReadAllText
+let source = Path.Combine(__SOURCE_DIRECTORY__, "..", fileName) |> File.ReadAllText
 
 let parsingOptions =
     { FSharpParsingOptions.Default with SourceFiles = [| fileName |] }

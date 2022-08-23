@@ -82,9 +82,7 @@ let formatFragment (defines: string list) (Fragment (ast, range)) (fileName: str
             let! formatted = CodeFormatter.FormatASTAsync(ast, fileName, defines, None, config)
             File.WriteAllText(fileName, formatted)
         with ex ->
-            let errorFile =
-                Path.GetFileNameWithoutExtension(fileName)
-                |> sprintf "%s_error.txt"
+            let errorFile = Path.GetFileNameWithoutExtension(fileName) |> sprintf "%s_error.txt"
 
             let errorLog =
                 $"""Unable to format %s{fileName}
@@ -100,9 +98,7 @@ let formatFragments (filePath: string) : unit =
 
     let fileNameWithoutExtension = Path.GetFileNameWithoutExtension(filePath)
 
-    let sourceOrigin =
-        File.ReadAllText filePath
-        |> SourceOrigin.SourceString
+    let sourceOrigin = File.ReadAllText filePath |> SourceOrigin.SourceString
 
     let parsingOptions =
         { FSharpParsingOptions.Default with SourceFiles = [| filePath |] }
@@ -116,13 +112,10 @@ let formatFragments (filePath: string) : unit =
         |> Seq.map (fun (ast, defines) -> defines, splitParsedInput ast)
         |> Seq.toList
 
-    let fragmentFolder =
-        Path.GetFullPath filePath
-        |> Path.GetFileNameWithoutExtension
+    let fragmentFolder = Path.GetFullPath filePath |> Path.GetFileNameWithoutExtension
 
     if not (Directory.Exists(fragmentFolder)) then
-        Directory.CreateDirectory(fragmentFolder)
-        |> ignore
+        Directory.CreateDirectory(fragmentFolder) |> ignore
 
     match fragments with
     | [] -> ()

@@ -25,9 +25,7 @@ async {
 
     let repository = Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json")
 
-    let! resource =
-        repository.GetResourceAsync<FindPackageByIdResource>()
-        |> Async.AwaitTask
+    let! resource = repository.GetResourceAsync<FindPackageByIdResource>() |> Async.AwaitTask
 
     let! versions =
         resource.GetAllVersionsAsync("fantomas-tool", cache, logger, cancellationToken)
@@ -37,8 +35,7 @@ async {
     |> Seq.filter (fun v ->
         v.Major = 4
         && v.Minor = 6
-        && (Option.map (fun alpha -> alpha >= 4) v.Alpha
-            |> Option.defaultValue true)
+        && (Option.map (fun alpha -> alpha >= 4) v.Alpha |> Option.defaultValue true)
     )
     |> Seq.iter (fun v -> printfn "%A" v.Release)
 }
@@ -54,9 +51,7 @@ async {
 
     let repository = Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json")
 
-    let! findPackageByIdResource =
-        repository.GetResourceAsync<FindPackageByIdResource>()
-        |> Async.AwaitTask
+    let! findPackageByIdResource = repository.GetResourceAsync<FindPackageByIdResource>() |> Async.AwaitTask
 
     let! elmish =
         let version = NuGetVersion.Parse("3.1")
@@ -64,9 +59,7 @@ async {
         findPackageByIdResource.GetDependencyInfoAsync("Elmish", version, cache, logger, cancellationToken)
         |> Async.AwaitTask
 
-    let! packageMetadataResource =
-        repository.GetResourceAsync<PackageMetadataResource>()
-        |> Async.AwaitTask
+    let! packageMetadataResource = repository.GetResourceAsync<PackageMetadataResource>() |> Async.AwaitTask
 
     let! meta =
         packageMetadataResource.GetMetadataAsync(elmish.PackageIdentity, cache, logger, cancellationToken)
@@ -93,13 +86,9 @@ let getLicensesInfo (packages: (string * string) seq) : Async<LicenseInformation
 
         let repository = Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json")
 
-        let! findPackageByIdResource =
-            repository.GetResourceAsync<FindPackageByIdResource>()
-            |> Async.AwaitTask
+        let! findPackageByIdResource = repository.GetResourceAsync<FindPackageByIdResource>() |> Async.AwaitTask
 
-        let! packageMetadataResource =
-            repository.GetResourceAsync<PackageMetadataResource>()
-            |> Async.AwaitTask
+        let! packageMetadataResource = repository.GetResourceAsync<PackageMetadataResource>() |> Async.AwaitTask
 
         let findPackage (packageId, version) =
             async {
@@ -131,7 +120,5 @@ let getLicensesInfo (packages: (string * string) seq) : Async<LicenseInformation
         return! packages |> Seq.map findPackage |> Async.Parallel
     }
 
-getLicensesInfo
-    [ "CliWrap", "3.3.3"
-      "CommandLineParser.FSharp", "2.8" ]
+getLicensesInfo [ "CliWrap", "3.3.3"; "CommandLineParser.FSharp", "2.8" ]
 |> Async.RunSynchronously

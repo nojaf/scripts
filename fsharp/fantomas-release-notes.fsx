@@ -29,17 +29,11 @@ let getTitle issue =
     |> Option.map (fun t ->
         let title = t.InnerText().Trim()
 
-        let dot =
-            if title.EndsWith(".") then
-                String.Empty
-            else
-                "."
+        let dot = if title.EndsWith(".") then String.Empty else "."
 
         $"* Fix %s{title}%s{dot} [#%i{issue}](%s{url})"
     )
 
-let issues =
-    List.choose getTitle fixedIssues
-    |> String.concat Environment.NewLine
+let issues = List.choose getTitle fixedIssues |> String.concat Environment.NewLine
 
 printfn $"%s{issues}"

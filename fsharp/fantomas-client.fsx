@@ -11,9 +11,7 @@ let file = @"C:\Users\fverdonck\Projects\HelloWorld\Math.fs"
 let content = File.ReadAllText file
 
 let response =
-    service.VersionAsync file
-    |> Async.AwaitTask
-    |> Async.RunSynchronously
+    service.VersionAsync file |> Async.AwaitTask |> Async.RunSynchronously
 
 printfn "%A" response
 
