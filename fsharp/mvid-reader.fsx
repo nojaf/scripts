@@ -13,6 +13,7 @@ let getMvid refDll =
     printfn "%s at %s" (mvid.ToString()) (DateTime.Now.ToString())
 
 let refDll =
-    @"C:\Users\nojaf\Projects\reference-assemblies-sample\A\obj\Debug\net6.0\refint\A.dll"
+    // @"C:\Users\nojaf\Projects\reference-assemblies-sample\A\obj\Debug\net6.0\refint\A.dll"
+    @"C:\Users\nojaf\Projects\fantomas\src\Fantomas.Core\obj\Debug\netstandard2.0\refint\Fantomas.Core.dll"
 
 getMvid refDll
