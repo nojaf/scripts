@@ -16,13 +16,13 @@ type ASTFragment = Fragment of ParsedInput * Range
 let updateModuleInImpl (ast: ParsedInput) (mdl: SynModuleOrNamespace) : ParsedInput =
     match ast with
     | ParsedInput.SigFile _ -> ast
-    | ParsedInput.ImplFile (ParsedImplFileInput (fileName,
-                                                 isScript,
-                                                 qualifiedNameOfFile,
-                                                 scopedPragmas,
-                                                 hashDirectives,
-                                                 _,
-                                                 isLastAndCompiled)) ->
+    | ParsedInput.ImplFile(ParsedImplFileInput(fileName,
+                                               isScript,
+                                               qualifiedNameOfFile,
+                                               scopedPragmas,
+                                               hashDirectives,
+                                               _,
+                                               isLastAndCompiled)) ->
 
     ParsedImplFileInput(
         fileName,
@@ -38,14 +38,14 @@ let updateModuleInImpl (ast: ParsedInput) (mdl: SynModuleOrNamespace) : ParsedIn
 let updateModuleInSig (ast: ParsedInput) (mdl: SynModuleOrNamespaceSig) : ParsedInput =
     match ast with
     | ParsedInput.ImplFile _ -> ast
-    | ParsedInput.SigFile (ParsedSigFileInput (fileName, qualifiedNameOfFile, scopedPragmas, hashDirectives, _)) ->
+    | ParsedInput.SigFile(ParsedSigFileInput(fileName, qualifiedNameOfFile, scopedPragmas, hashDirectives, _)) ->
 
     ParsedSigFileInput(fileName, qualifiedNameOfFile, scopedPragmas, hashDirectives, [ mdl ])
     |> ParsedInput.SigFile
 
 let splitModule (ast: ParsedInput) (mn: SynModuleOrNamespace) : ASTFragment list =
     match mn with
-    | SynModuleOrNamespace.SynModuleOrNamespace (lid, isRec, kind, decls, xmlDoc, attribs, ao, range) ->
+    | SynModuleOrNamespace.SynModuleOrNamespace(lid, isRec, kind, decls, xmlDoc, attribs, ao, range) ->
 
     decls
     |> List.map (fun d ->
@@ -58,7 +58,7 @@ let splitModule (ast: ParsedInput) (mn: SynModuleOrNamespace) : ASTFragment list
 
 let splitModuleSig (ast: ParsedInput) (mn: SynModuleOrNamespaceSig) : ASTFragment list =
     match mn with
-    | SynModuleOrNamespaceSig.SynModuleOrNamespaceSig (lid, isRec, kind, decls, xmlDoc, attribs, ao, range) ->
+    | SynModuleOrNamespaceSig.SynModuleOrNamespaceSig(lid, isRec, kind, decls, xmlDoc, attribs, ao, range) ->
 
     decls
     |> List.map (fun d ->
@@ -71,12 +71,12 @@ let splitModuleSig (ast: ParsedInput) (mn: SynModuleOrNamespaceSig) : ASTFragmen
 
 let splitParsedInput (ast: ParsedInput) : ASTFragment list =
     match ast with
-    | ParsedInput.ImplFile (ParsedImplFileInput.ParsedImplFileInput (modules = modules)) ->
+    | ParsedInput.ImplFile(ParsedImplFileInput.ParsedImplFileInput(modules = modules)) ->
         modules |> List.collect (splitModule ast)
-    | ParsedInput.SigFile (ParsedSigFileInput.ParsedSigFileInput (modules = modules)) ->
+    | ParsedInput.SigFile(ParsedSigFileInput.ParsedSigFileInput(modules = modules)) ->
         modules |> List.collect (splitModuleSig ast)
 
-let formatFragment (defines: string list) (Fragment (ast, range)) (fileName: string) : Async<unit> =
+let formatFragment (defines: string list) (Fragment(ast, range)) (fileName: string) : Async<unit> =
     async {
         try
             let! formatted = CodeFormatter.FormatASTAsync(ast, fileName, defines, None, config)

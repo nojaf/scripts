@@ -29,11 +29,11 @@ let countInFile (path: string) =
         |> Async.RunSynchronously
 
     match ast with
-    | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) ->
+    | ParsedInput.ImplFile(ParsedImplFileInput(modules = modules)) ->
         modules
         |> List.sumBy (
             function
-            | SynModuleOrNamespace (decls = decls) -> List.length decls
+            | SynModuleOrNamespace(decls = decls) -> List.length decls
         )
     | _ -> 0
 

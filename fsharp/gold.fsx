@@ -5,7 +5,7 @@ open System.IO
 open TextCopy
 
 let targetFolder =
-    @"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\test\data\features\intentions\addFunctionToSignature"
+    @"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\test\data\features\quickFixes\updateRecordFieldTypeInSignatureFix"
 
 let (</>) a b = Path.Combine(a, b)
 
@@ -21,18 +21,27 @@ let mkTest testName (implContent: string) (signatureContentBefore: string) (sign
     ClipboardService.SetText($"[<Test>] member x.``{testName}`` () = x.DoNamedTestWithSignature()")
 
 mkTest
-    "Generic constraints - 01"
+    "Don't prefix type - 01"
     """module Test
 
-let memoizeBy{caret} (g: 'a -> 'c) (f: 'a -> 'b) =
-    let cache =
-        System.Collections.Concurrent.ConcurrentDictionary<_, _>(HashIdentity.Structural)
+type R{caret} =
+    { A: int
+      B: System.DateTime }
+"""
+    """module Test
 
-    fun x -> cache.GetOrAdd(Some(g x), lazy (f x)).Force()
+open System
+
+type R =
+    { A: int }
 """
     """module Test
-"""
-    """module Test
+
+open System
+
+type R =
+    { A: int
+      B: DateTime }
 """
 
 Directory.EnumerateFiles(targetFolder)
@@ -42,13 +51,3 @@ Directory.EnumerateFiles(targetFolder)
     if content.[content.Length - 1] <> '\n' then
         File.WriteAllText(path, String.Concat(content, '\n'))
 )
-
-open System.Diagnostics.CodeAnalysis
-
-let x ([<NotNull>] y: int, [<SuppressMessage "Some message">] z: string) = y + 0
-
-let memoizeBy (g: 'a -> 'c) (f: 'a -> 'b) =
-    let cache =
-        System.Collections.Concurrent.ConcurrentDictionary<_, _>(HashIdentity.Structural)
-
-    fun x -> cache.GetOrAdd(Some(g x), lazy (f x)).Force()

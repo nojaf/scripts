@@ -14,6 +14,6 @@ let getMvid refDll =
 
 let refDll =
     // @"C:\Users\nojaf\Projects\reference-assemblies-sample\A\obj\Debug\net6.0\refint\A.dll"
-    @"C:\Users\nojaf\Projects\fantomas\src\Fantomas.Core\obj\Debug\netstandard2.0\refint\Fantomas.Core.dll"
+    @"C:\Users\nojaf\Projects\telplin\src\Telplin.Core\obj\Debug\net7.0\refint\Telplin.Core.dll"
 
 getMvid refDll

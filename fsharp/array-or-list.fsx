@@ -25,7 +25,8 @@ printf "%A" ast
 
 let arrayNode =
     match ast with
-    | ParsedInput.ImplFile (ParsedImplFileInput(modules = [ SynModuleOrNamespace(decls = [ SynModuleDecl.DoExpr (expr = array) ]) ])) ->
+    | ParsedInput.ImplFile(ParsedImplFileInput(
+        modules = [ SynModuleOrNamespace(decls = [ SynModuleDecl.DoExpr(expr = array) ]) ])) ->
         match array with
         | SynExpr.ArrayOrList _
         | SynExpr.ArrayOrListOfSeqExpr _ -> array
