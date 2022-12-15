@@ -9,7 +9,8 @@ let fileName = "/tmp.fsx"
 let checker = FSharpChecker.Create()
 
 let parsingOptions =
-    { FSharpParsingOptions.Default with SourceFiles = [| fileName |] }
+    { FSharpParsingOptions.Default with
+        SourceFiles = [| fileName |] }
 
 let source =
     """

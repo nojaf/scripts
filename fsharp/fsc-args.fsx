@@ -309,7 +309,9 @@ args.Split([| "\n" |], StringSplitOptions.RemoveEmptyEntries)
 |> fun ast ->
     CodeFormatter.FormatASTAsync(
         ast,
-        config = { FormatConfig.FormatConfig.Default with MultilineBlockBracketsOnSameColumn = true }
+        config =
+            { FormatConfig.FormatConfig.Default with
+                MultilineBlockBracketsOnSameColumn = true }
     )
 |> Async.RunSynchronously
 |> printfn "%s"

@@ -9,7 +9,9 @@ open FSharp.Compiler.SourceCodeServices
 
 let checker = FSharpChecker.Create()
 
-let config = { FormatConfig.FormatConfig.Default with StrictMode = true }
+let config =
+    { FormatConfig.FormatConfig.Default with
+        StrictMode = true }
 
 type ASTFragment = Fragment of ParsedInput * Range
 
@@ -101,7 +103,8 @@ let formatFragments (filePath: string) : unit =
     let sourceOrigin = File.ReadAllText filePath |> SourceOrigin.SourceString
 
     let parsingOptions =
-        { FSharpParsingOptions.Default with SourceFiles = [| filePath |] }
+        { FSharpParsingOptions.Default with
+            SourceFiles = [| filePath |] }
 
     let ast =
         CodeFormatter.ParseAsync(filePath, sourceOrigin, parsingOptions, checker)

@@ -9,7 +9,8 @@ let fileName = "tmp.fsi"
 let checker = FSharpChecker.Create()
 
 let parsingOptions =
-    { FSharpParsingOptions.Default with SourceFiles = [| fileName |] }
+    { FSharpParsingOptions.Default with
+        SourceFiles = [| fileName |] }
 
 let getAst fileName source =
     async {

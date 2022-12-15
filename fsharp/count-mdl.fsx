@@ -19,7 +19,8 @@ let countInFile (path: string) =
     let fileName = $"{System.Guid.NewGuid()}{ext}"
 
     let parsingOptions =
-        { FSharpParsingOptions.Default with SourceFiles = [| fileName |] }
+        { FSharpParsingOptions.Default with
+            SourceFiles = [| fileName |] }
 
     let ast =
         async {
