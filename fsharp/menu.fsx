@@ -26,8 +26,7 @@ let decodeItem: Decoder<Item> =
         Index = get.Required.Field "index" decodeStringAsInt
         Link = get.Required.Field "link" Decode.string
         Title = get.Required.Field "title" Decode.string
-    }
-    )
+    })
 
 open Fable.React
 open Fable.React.Props
@@ -77,8 +76,7 @@ let menuPart =
             let html = view items
             printfn "html:\n%s" html
             return! OK html ctx
-    }
-    )
+    })
 
 let port = 8906us
 

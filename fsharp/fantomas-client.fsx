@@ -7,12 +7,14 @@ open Fantomas.Client.LSPFantomasService
 
 let service = new LSPFantomasService() :> FantomasService
 
-let file = @"C:\Users\fverdonck\Projects\HelloWorld\Math.fs"
+let file = @"C:\Users\nojaf\Projects\fsharp\src\Compiler\Checking\NicePrint.fs"
 let content = File.ReadAllText file
 
-let response =
-    service.VersionAsync file |> Async.AwaitTask |> Async.RunSynchronously
+let formatReq: FormatDocumentRequest =
+    { SourceCode = content
+      FilePath = file
+      Config = None }
 
-printfn "%A" response
+service.FormatDocumentAsync(formatReq).Result.Code
 
 (service :> IDisposable).Dispose()

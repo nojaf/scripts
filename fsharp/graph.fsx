@@ -9,7 +9,7 @@ open TextCopy
 // let input = @"C:\Users\nojaf\Projects\safesparrow-fsharp\artifacts\bin\ParallelTypeCheckingTests\Debug\net7.0\Fantomas.Core.fsproj.deps.json"
 // let input = @"C:\Users\nojaf\Downloads\fantomas-core-typed-tree.json"
 let input =
-    @"C:\Users\nojaf\Projects\fantomas\src\Fantomas.Core\Fantomas.Core.dll.deps.json"
+    @"C:\Users\nojaf\Projects\main-fantomas\src\Fantomas.Core\Fantomas.Core.dll.deps.json"
 
 let json = File.ReadAllText(input)
 
