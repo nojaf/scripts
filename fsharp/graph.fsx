@@ -20,21 +20,29 @@ let fileName (path: string) = Path.GetFileName(path)
 
 let graph =
     let sb = StringBuilder()
-    sb.AppendLine("graph") |> ignore
+    sb.AppendLine("flowchart RL") |> ignore
 
     match Decode.fromString decoder json with
     | Error err -> failwithf "could not decode, got %A" err
     | Ok result ->
         let indexes = result |> Seq.mapi (fun idx (key, _) -> fileName key, idx) |> dict
 
-        for (key, deps) in result do
+        for (key, _) in result do
             let name = fileName key
             let idx = indexes.[name]
             sb.AppendLine($"    {idx}[\"{name}\"]") |> ignore
 
+        for (key, deps) in result do
+            let name = fileName key
+            let idx = indexes.[name]
+
+            if not (Seq.isEmpty deps) then
+                sb.AppendLine($"    %%%% {idx} {name} depends on:") |> ignore
+
             for dep in deps do
-                let depIdx = indexes.[fileName dep]
-                sb.AppendLine($"    {idx} --> {depIdx}") |> ignore
+                let depFileName = fileName dep
+                let depIdx = indexes.[depFileName]
+                sb.AppendLine($"    {idx} --> {depIdx} %%%% {depFileName}") |> ignore
 
     sb.ToString()
 
