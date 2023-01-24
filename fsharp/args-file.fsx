@@ -60,6 +60,9 @@ let project = Array.last fsi.CommandLineArgs
 if not (File.Exists project) then
     failwithf "%s does not exist" project
 
+if not (project.EndsWith(".fsproj")) then
+    failwithf "%s is not an fsharp project file" project
+
 Cli
     .Wrap("dotnet")
     .WithArguments($"build {project} -bl --no-incremental")
