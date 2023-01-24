@@ -12,9 +12,14 @@ let getMvid refDll =
     let mvid = sourceReader.GetGuid(loc)
     printfn "%s at %s" (mvid.ToString()) (DateTime.Now.ToString())
 
-let refDll =
-    // @"C:\Users\nojaf\Projects\reference-assemblies-sample\A\obj\Debug\net6.0\refint\A.dll"
-    // @"C:\Users\nojaf\Projects\telplin\src\Telplin.Core\obj\Debug\net7.0\refint\Telplin.Core.dll"
-    @"C:\Users\nojaf\Projects\fantomas\src\Fantomas.FCS\bin\Debug\netstandard2.0\Fantomas.FCS.dll"
 
-getMvid refDll
+let dll : string = Array.last fsi.CommandLineArgs
+
+
+if not (dll.EndsWith(".dll")) then
+    failwithf "Expected %s to have .dll extension" dll
+
+if not (File.Exists dll) then
+    failwithf "%s does not exist on disk" dll
+
+getMvid dll
