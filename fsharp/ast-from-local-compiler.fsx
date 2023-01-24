@@ -11,13 +11,21 @@ let parsingOptions =
     { FSharpParsingOptions.Default with
           SourceFiles = [| fileName |] }
 
-let source =
-    """
-let a = 1 in
-printfn $"{a + 1}"
-"""
+let source = "
+#if FOO
+    \"\"\"
+    #if BAR
+                printfn \"FOO\"
+    #endif
+    \"\"\"
+#else
+                ()
+#endif
+"
 
 let ast =
     checker.ParseFile(fileName, FSharp.Compiler.Text.SourceText.ofString source, parsingOptions)
     |> Async.RunSynchronously
     |> fun result -> result.ParseTree
+
+printfn "%A" ast
