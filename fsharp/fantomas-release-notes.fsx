@@ -15,14 +15,12 @@ let fixedIssues =
 
 
 [<Literal>]
-let SampleLink =
-    "https://github.com/fsprojects/fantomas/issues/363"
+let SampleLink = "https://github.com/fsprojects/fantomas/issues/363"
 
 type GithubIssuePage = HtmlProvider<SampleLink>
 
 let getTitle issue =
-    let url =
-        $"https://github.com/fsprojects/fantomas/issues/%i{issue}"
+    let url = $"https://github.com/fsprojects/fantomas/issues/%i{issue}"
 
     let page = GithubIssuePage.Load(url)
 
@@ -31,17 +29,11 @@ let getTitle issue =
     |> Option.map (fun t ->
         let title = t.InnerText().Trim()
 
-        let dot =
-            if title.EndsWith(".") then
-                String.Empty
-            else
-                "."
+        let dot = if title.EndsWith(".") then String.Empty else "."
 
         $"* %s{title}%s{dot} [#%i{issue}](%s{url})"
     )
 
-let issues =
-    List.choose getTitle fixedIssues
-    |> String.concat Environment.NewLine
+let issues = List.choose getTitle fixedIssues |> String.concat Environment.NewLine
 
 printfn $"%s{issues}"

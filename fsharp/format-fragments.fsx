@@ -11,20 +11,20 @@ let checker = FSharpChecker.Create()
 
 let config =
     { FormatConfig.FormatConfig.Default with
-          StrictMode = true }
+        StrictMode = true }
 
 type ASTFragment = Fragment of ParsedInput * Range
 
 let updateModuleInImpl (ast: ParsedInput) (mdl: SynModuleOrNamespace) : ParsedInput =
     match ast with
     | ParsedInput.SigFile _ -> ast
-    | ParsedInput.ImplFile (ParsedImplFileInput (fileName,
-                                                 isScript,
-                                                 qualifiedNameOfFile,
-                                                 scopedPragmas,
-                                                 hashDirectives,
-                                                 _,
-                                                 isLastAndCompiled)) ->
+    | ParsedInput.ImplFile(ParsedImplFileInput(fileName,
+                                               isScript,
+                                               qualifiedNameOfFile,
+                                               scopedPragmas,
+                                               hashDirectives,
+                                               _,
+                                               isLastAndCompiled)) ->
 
     ParsedImplFileInput(
         fileName,
@@ -40,52 +40,51 @@ let updateModuleInImpl (ast: ParsedInput) (mdl: SynModuleOrNamespace) : ParsedIn
 let updateModuleInSig (ast: ParsedInput) (mdl: SynModuleOrNamespaceSig) : ParsedInput =
     match ast with
     | ParsedInput.ImplFile _ -> ast
-    | ParsedInput.SigFile (ParsedSigFileInput (fileName, qualifiedNameOfFile, scopedPragmas, hashDirectives, _)) ->
+    | ParsedInput.SigFile(ParsedSigFileInput(fileName, qualifiedNameOfFile, scopedPragmas, hashDirectives, _)) ->
 
     ParsedSigFileInput(fileName, qualifiedNameOfFile, scopedPragmas, hashDirectives, [ mdl ])
     |> ParsedInput.SigFile
 
 let splitModule (ast: ParsedInput) (mn: SynModuleOrNamespace) : ASTFragment list =
     match mn with
-    | SynModuleOrNamespace.SynModuleOrNamespace (lid, isRec, kind, decls, xmlDoc, attribs, ao, range) ->
-        decls
-        |> List.map (fun d ->
-            let parsedInput =
-                SynModuleOrNamespace(lid, isRec, kind, [ d ], xmlDoc, attribs, ao, range)
-                |> updateModuleInImpl ast
+    | SynModuleOrNamespace.SynModuleOrNamespace(lid, isRec, kind, decls, xmlDoc, attribs, ao, range) ->
 
-            ASTFragment.Fragment(parsedInput, d.Range)
-        )
+    decls
+    |> List.map (fun d ->
+        let parsedInput =
+            SynModuleOrNamespace(lid, isRec, kind, [ d ], xmlDoc, attribs, ao, range)
+            |> updateModuleInImpl ast
+
+        ASTFragment.Fragment(parsedInput, d.Range)
+    )
 
 let splitModuleSig (ast: ParsedInput) (mn: SynModuleOrNamespaceSig) : ASTFragment list =
     match mn with
-    | SynModuleOrNamespaceSig.SynModuleOrNamespaceSig (lid, isRec, kind, decls, xmlDoc, attribs, ao, range) ->
-        decls
-        |> List.map (fun d ->
-            let parsedInput =
-                SynModuleOrNamespaceSig(lid, isRec, kind, [ d ], xmlDoc, attribs, ao, range)
-                |> updateModuleInSig ast
+    | SynModuleOrNamespaceSig.SynModuleOrNamespaceSig(lid, isRec, kind, decls, xmlDoc, attribs, ao, range) ->
 
-            ASTFragment.Fragment(parsedInput, d.Range)
-        )
+    decls
+    |> List.map (fun d ->
+        let parsedInput =
+            SynModuleOrNamespaceSig(lid, isRec, kind, [ d ], xmlDoc, attribs, ao, range)
+            |> updateModuleInSig ast
+
+        ASTFragment.Fragment(parsedInput, d.Range)
+    )
 
 let splitParsedInput (ast: ParsedInput) : ASTFragment list =
     match ast with
-    | ParsedInput.ImplFile (ParsedImplFileInput.ParsedImplFileInput (modules = modules)) ->
+    | ParsedInput.ImplFile(ParsedImplFileInput.ParsedImplFileInput(modules = modules)) ->
         modules |> List.collect (splitModule ast)
-    | ParsedInput.SigFile (ParsedSigFileInput.ParsedSigFileInput (modules = modules)) ->
+    | ParsedInput.SigFile(ParsedSigFileInput.ParsedSigFileInput(modules = modules)) ->
         modules |> List.collect (splitModuleSig ast)
 
-let formatFragment (defines: string list) (Fragment (ast, range)) (fileName: string) : Async<unit> =
+let formatFragment (defines: string list) (Fragment(ast, range)) (fileName: string) : Async<unit> =
     async {
         try
             let! formatted = CodeFormatter.FormatASTAsync(ast, fileName, defines, None, config)
             File.WriteAllText(fileName, formatted)
-        with
-        | ex ->
-            let errorFile =
-                Path.GetFileNameWithoutExtension(fileName)
-                |> sprintf "%s_error.txt"
+        with ex ->
+            let errorFile = Path.GetFileNameWithoutExtension(fileName) |> sprintf "%s_error.txt"
 
             let errorLog =
                 $"""Unable to format %s{fileName}
@@ -99,16 +98,13 @@ let formatFragment (defines: string list) (Fragment (ast, range)) (fileName: str
 let formatFragments (filePath: string) : unit =
     let extension = Path.GetExtension(filePath)
 
-    let fileNameWithoutExtension =
-        Path.GetFileNameWithoutExtension(filePath)
+    let fileNameWithoutExtension = Path.GetFileNameWithoutExtension(filePath)
 
-    let sourceOrigin =
-        File.ReadAllText filePath
-        |> SourceOrigin.SourceString
+    let sourceOrigin = File.ReadAllText filePath |> SourceOrigin.SourceString
 
     let parsingOptions =
         { FSharpParsingOptions.Default with
-              SourceFiles = [| filePath |] }
+            SourceFiles = [| filePath |] }
 
     let ast =
         CodeFormatter.ParseAsync(filePath, sourceOrigin, parsingOptions, checker)
@@ -119,13 +115,10 @@ let formatFragments (filePath: string) : unit =
         |> Seq.map (fun (ast, defines) -> defines, splitParsedInput ast)
         |> Seq.toList
 
-    let fragmentFolder =
-        Path.GetFullPath filePath
-        |> Path.GetFileNameWithoutExtension
+    let fragmentFolder = Path.GetFullPath filePath |> Path.GetFileNameWithoutExtension
 
     if not (Directory.Exists(fragmentFolder)) then
-        Directory.CreateDirectory(fragmentFolder)
-        |> ignore
+        Directory.CreateDirectory(fragmentFolder) |> ignore
 
     match fragments with
     | [] -> ()

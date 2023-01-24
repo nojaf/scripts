@@ -9,9 +9,10 @@ let checker = FSharpChecker.Create()
 
 let parsingOptions =
     { FSharpParsingOptions.Default with
-          SourceFiles = [| fileName |] }
+        SourceFiles = [| fileName |] }
 
-let source = "
+let source =
+    "
 #if FOO
     \"\"\"
     #if BAR

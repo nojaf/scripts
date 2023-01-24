@@ -9,12 +9,15 @@ let checker = FSharpChecker.Create()
 
 let parsingOptions =
     { FSharpParsingOptions.Default with
-          SourceFiles = [| fileName |] }
+        SourceFiles = [| fileName |] }
 
 let getAst fileName source =
     async {
         let! tree = checker.ParseFile(fileName, source |> SourceText.ofString, parsingOptions)
-        if tree.Diagnostics.Length > 0 then printfn "%A" tree.Diagnostics
+
+        if tree.Diagnostics.Length > 0 then
+            printfn "%A" tree.Diagnostics
+
         return tree.ParseTree
     }
     |> Async.RunSynchronously

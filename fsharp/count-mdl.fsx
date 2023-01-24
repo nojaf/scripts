@@ -8,9 +8,7 @@ open System.IO
 let checker = FSharpChecker.Create()
 
 let countInFile (path: string) =
-    let source =
-        File.ReadAllText(path)
-        |> SourceOrigin.SourceString
+    let source = File.ReadAllText(path) |> SourceOrigin.SourceString
 
     let ext =
         if (Path.GetExtension(path) = ".fsi") then
@@ -22,7 +20,7 @@ let countInFile (path: string) =
 
     let parsingOptions =
         { FSharpParsingOptions.Default with
-              SourceFiles = [| fileName |] }
+            SourceFiles = [| fileName |] }
 
     let ast =
         async {
@@ -32,11 +30,12 @@ let countInFile (path: string) =
         |> Async.RunSynchronously
 
     match ast with
-    | ParsedInput.ImplFile (ParsedImplFileInput (modules = modules)) ->
+    | ParsedInput.ImplFile(ParsedImplFileInput(modules = modules)) ->
         modules
-        |> List.sumBy
-            (function
-            | SynModuleOrNamespace (decls = decls) -> List.length decls)
+        |> List.sumBy (
+            function
+            | SynModuleOrNamespace(decls = decls) -> List.length decls
+        )
     | _ -> 0
 
 let countInFolder (path: string) : unit =
@@ -53,4 +52,4 @@ let countInFolder (path: string) : unit =
     |> Seq.sortByDescending snd
     |> Seq.iter (fun (p, i) -> printfn "%s : %i" p i)
 
-countInFolder "/workspace/scripts/fantomas"
+countInFolder @"C:\Users\fverdonck\Projects\fantomas"
