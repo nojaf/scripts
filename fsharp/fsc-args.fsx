@@ -289,21 +289,27 @@ args.Split([| "\n" |], StringSplitOptions.RemoveEmptyEntries)
             QualifiedNameOfFile(Ident("", Range.Zero)),
             [],
             [],
-            [ SynModuleOrNamespace(
-                  [],
-                  false,
-                  SynModuleOrNamespaceKind.AnonModule,
-                  [ SynModuleDecl.Expr(expr, Range.Zero) ],
-                  PreXmlDoc.Empty,
-                  [],
-                  None,
-                  Range.Zero,
-                  { ModuleKeyword = None
-                    NamespaceKeyword = None }
-              ) ],
+            [
+                SynModuleOrNamespace(
+                    [],
+                    false,
+                    SynModuleOrNamespaceKind.AnonModule,
+                    [ SynModuleDecl.Expr(expr, Range.Zero) ],
+                    PreXmlDoc.Empty,
+                    [],
+                    None,
+                    Range.Zero,
+                    {
+                        ModuleKeyword = None
+                        NamespaceKeyword = None
+                    }
+                )
+            ],
             (false, false),
-            { ConditionalDirectives = []
-              CodeComments = [] }
+            {
+                ConditionalDirectives = []
+                CodeComments = []
+            }
         )
     )
 |> fun ast ->
@@ -311,7 +317,8 @@ args.Split([| "\n" |], StringSplitOptions.RemoveEmptyEntries)
         ast,
         config =
             { FormatConfig.FormatConfig.Default with
-                MultilineBlockBracketsOnSameColumn = true }
+                MultilineBlockBracketsOnSameColumn = true
+            }
     )
 |> Async.RunSynchronously
 |> printfn "%s"

@@ -11,9 +11,11 @@ let file = @"C:\Users\nojaf\Projects\fsharp\src\Compiler\Checking\NicePrint.fs"
 let content = File.ReadAllText file
 
 let formatReq: FormatDocumentRequest =
-    { SourceCode = content
-      FilePath = file
-      Config = None }
+    {
+        SourceCode = content
+        FilePath = file
+        Config = None
+    }
 
 service.FormatDocumentAsync(formatReq).Result.Code
 

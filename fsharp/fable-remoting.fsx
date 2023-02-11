@@ -17,11 +17,16 @@ type FantomasDaemon =
     // abstract member Configuration : unit -> FantomasConfiguration
     // abstract member Format : sourceCode: string -> fileName: string -> configuration: string option -> string
     // abstract member FormatSelection : sourceCode: string -> fileName: string -> range: obj -> configuration: string option -> string
-    { Version: unit -> Async<string> }
+    {
+        Version: unit -> Async<string>
+    }
 
 // Server
 
-let daemon: FantomasDaemon = { Version = fun () -> Async.result "4.6" }
+let daemon: FantomasDaemon =
+    {
+        Version = fun () -> Async.result "4.6"
+    }
 
 let fableWebApp: WebPart =
     Remoting.createApi ()

@@ -20,7 +20,8 @@ let countInFile (path: string) =
 
     let parsingOptions =
         { FSharpParsingOptions.Default with
-            SourceFiles = [| fileName |] }
+            SourceFiles = [| fileName |]
+        }
 
     let ast =
         async {

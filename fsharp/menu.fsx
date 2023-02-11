@@ -66,22 +66,25 @@ let view (items: Item array) : string =
 let menuPart =
     POST
     >=> Filters.path "/menu"
-    >=> (fun (ctx: HttpContext) -> async {
-        let json = System.Text.Encoding.UTF8.GetString(ctx.request.rawForm)
-        printfn "received: %s" json
+    >=> (fun (ctx: HttpContext) ->
+        async {
+            let json = System.Text.Encoding.UTF8.GetString(ctx.request.rawForm)
+            printfn "received: %s" json
 
-        match Decode.fromString (Decode.array decodeItem) json with
-        | Error err -> return! OK $"<div>Failed to decode, {err}</div>" ctx
-        | Ok items ->
-            let html = view items
-            printfn "html:\n%s" html
-            return! OK html ctx
-    })
+            match Decode.fromString (Decode.array decodeItem) json with
+            | Error err -> return! OK $"<div>Failed to decode, {err}</div>" ctx
+            | Ok items ->
+                let html = view items
+                printfn "html:\n%s" html
+                return! OK html ctx
+        }
+    )
 
 let port = 8906us
 
 startWebServer
-    { defaultConfig with
-        bindings = [ HttpBinding.create HTTP IPAddress.Loopback port ]
+    {
+        defaultConfig with
+            bindings = [ HttpBinding.create HTTP IPAddress.Loopback port ]
     }
     menuPart

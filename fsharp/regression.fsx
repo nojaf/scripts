@@ -8,7 +8,8 @@ printfn "Version: %s" (CodeFormatter.GetVersion())
 
 let config =
     { FormatConfig.Default with
-        MultiLineLambdaClosingNewline = true }
+        MultiLineLambdaClosingNewline = true
+    }
 
 """
 

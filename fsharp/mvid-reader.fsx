@@ -13,7 +13,7 @@ let getMvid refDll =
     printfn "%s at %s" (mvid.ToString()) (DateTime.Now.ToString())
 
 
-let dll : string = Array.last fsi.CommandLineArgs
+let dll: string = Array.last fsi.CommandLineArgs
 
 
 if not (dll.EndsWith(".dll")) then

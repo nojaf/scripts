@@ -13,7 +13,8 @@ let source = Path.Combine(__SOURCE_DIRECTORY__, "..", fileName) |> File.ReadAllT
 
 let parsingOptions =
     { FSharpParsingOptions.Default with
-        SourceFiles = [| fileName |] }
+        SourceFiles = [| fileName |]
+    }
 
 let checker = FSharpChecker.Create()
 

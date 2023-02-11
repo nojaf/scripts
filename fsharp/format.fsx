@@ -5,7 +5,8 @@ open Fantomas.Core.FormatConfig
 
 let config =
     { FormatConfig.Default with
-        MaxLineLength = 90 }
+        MaxLineLength = 90
+    }
 
 CodeFormatter.FormatDocumentAsync(
     false,

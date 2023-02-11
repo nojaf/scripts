@@ -31,7 +31,7 @@ let runs =
             .Wrap("dotnet")
             .WithArguments(
                 // --test:ParallelIlxGen
-                $"build {project} /p:Deterministic=True /p:DotnetFscCompilerPath=\"{fsc}\" /p:OtherFlags=\"--test:GraphBasedChecking --test:DumpGraph\" --no-incremental"
+                $"build {project} /p:Deterministic=True /p:DotnetFscCompilerPath=\"{fsc}\" /p:OtherFlags=\"--test:GraphBasedChecking --test:DumpCheckingGraph\" --no-incremental"
             )
             .ExecuteAsync()
             .Task.Wait()

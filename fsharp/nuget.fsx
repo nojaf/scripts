@@ -72,10 +72,12 @@ async {
 |> Async.RunSynchronously
 
 type LicenseInformationResponse =
-    { PackageId: string
-      Version: string
-      License: string option
-      LicenseUrl: string }
+    {
+        PackageId: string
+        Version: string
+        License: string option
+        LicenseUrl: string
+    }
 
 let getLicensesInfo (packages: (string * string) seq) : Async<LicenseInformationResponse array> =
     async {
@@ -108,13 +110,15 @@ let getLicensesInfo (packages: (string * string) seq) : Async<LicenseInformation
                     |> Async.AwaitTask
 
                 return
-                    { PackageId = packageInfo.PackageIdentity.Id
-                      Version = string packageInfo.PackageIdentity.Version
-                      License =
-                        meta.LicenseMetadata
-                        |> Option.ofObj
-                        |> Option.map (fun license -> string license.LicenseExpression)
-                      LicenseUrl = string meta.LicenseUrl }
+                    {
+                        PackageId = packageInfo.PackageIdentity.Id
+                        Version = string packageInfo.PackageIdentity.Version
+                        License =
+                            meta.LicenseMetadata
+                            |> Option.ofObj
+                            |> Option.map (fun license -> string license.LicenseExpression)
+                        LicenseUrl = string meta.LicenseUrl
+                    }
             }
 
         return! packages |> Seq.map findPackage |> Async.Parallel

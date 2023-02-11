@@ -11,7 +11,8 @@ let checker = FSharpChecker.Create()
 
 let config =
     { FormatConfig.FormatConfig.Default with
-        StrictMode = true }
+        StrictMode = true
+    }
 
 type ASTFragment = Fragment of ParsedInput * Range
 
@@ -104,7 +105,8 @@ let formatFragments (filePath: string) : unit =
 
     let parsingOptions =
         { FSharpParsingOptions.Default with
-            SourceFiles = [| filePath |] }
+            SourceFiles = [| filePath |]
+        }
 
     let ast =
         CodeFormatter.ParseAsync(filePath, sourceOrigin, parsingOptions, checker)
