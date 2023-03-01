@@ -26,7 +26,10 @@ type TestData =
         let extension = if x.IsSignatureFile then ".fsi" else ".fs"
 
         let fileName =
-            x.Name.Strip([| "`"; "."; "#"; ",Signature"; "/"; ","; "::" |]).Trim().Pascalize()
+            x.Name
+                .Strip([| "`"; "."; "#"; ",Signature"; "/"; ","; "::" |])
+                .Trim()
+                .Pascalize()
 
         $"%s{fileName}%s{extension}"
 
@@ -73,10 +76,27 @@ let (|StringConstant|_|) (e: Expr) =
     match e with
     | Expr.Constant(Constant.FromText sourceCode) ->
         let text = sourceCode.Text
-        let text = if text.StartsWith("\"\"\"") then text.Substring(3) else text
-        let text = if text.EndsWith("\"\"\"") then text.Substring(0, text.Length - 3) else text
+
+        let text =
+            if text.StartsWith("\"\"\"") then
+                text.Substring(3)
+            else
+                text
+
+        let text =
+            if text.EndsWith("\"\"\"") then
+                text.Substring(0, text.Length - 3)
+            else
+                text
+
         let text = if text.StartsWith("\"") then text.Substring(1) else text
-        let text = if text.EndsWith("\"") then text.Substring(0, text.Length - 1) else text
+
+        let text =
+            if text.EndsWith("\"") then
+                text.Substring(0, text.Length - 1)
+            else
+                text
+
         let text = text.Trim()
         Some text
     | _ -> None
@@ -160,9 +180,19 @@ for testData in testData do
         Path.Combine(@"C:\Users\nojaf\Projects\fsharp\tests\service\data\SyntaxTree", $"{testData.FileName}.bsl")
 
     if File.Exists path then
-        let target = Path.Combine(@"C:\Users\nojaf\Projects\fsharp\tests\service\data\SyntaxTree", testData.Folder,  $"{testData.FileName}.bsl")
-        File.Move(path, target)
-    
+        let target =
+            Path.Combine(
+                @"C:\Users\nojaf\Projects\fsharp\tests\service\data\SyntaxTree",
+                testData.Folder,
+                $"{testData.FileName}.bsl"
+            )
 
-Directory.EnumerateFiles(@"C:\Users\nojaf\Projects\fsharp\tests\service\data\SyntaxTree", "*.fs?", searchOption = SearchOption.AllDirectories)
+        File.Move(path, target)
+
+
+Directory.EnumerateFiles(
+    @"C:\Users\nojaf\Projects\fsharp\tests\service\data\SyntaxTree",
+    "*.fs?",
+    searchOption = SearchOption.AllDirectories
+)
 |> Seq.length

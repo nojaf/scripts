@@ -1,13 +1,11 @@
-#r "nuget: Fantomas.FCS, 5.0.0-alpha-003"
-
+#r "nuget: Fantomas.FCS, 5.2.0-alpha-009"
 open Fantomas.FCS
 
 let sourceCode =
     """
-type T =
-    abstract P: Task<'t when 't :> INumber>
+let a = $":^) {if true then "y" else "n"} d"
 """
 
-Parse.parseFile true (FSharp.Compiler.Text.SourceText.ofString sourceCode) []
-|> snd
+Parse.parseFile false (FSharp.Compiler.Text.SourceText.ofString sourceCode) []
+|> fst
 |> printfn "%A"

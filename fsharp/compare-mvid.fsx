@@ -1,6 +1,8 @@
 #r "nuget: CliWrap, 3.6.0"
 #r "nuget: System.Reflection.Metadata"
+#r "System.Security.Cryptography"
 
+open System
 open System.IO
 open System.Reflection.Metadata
 open System.Reflection.PortableExecutable
@@ -10,81 +12,188 @@ let getMvid refDll =
     let sourceReader = embeddedReader.GetMetadataReader()
     let loc = sourceReader.GetModuleDefinition().Mvid
     let mvid = sourceReader.GetGuid(loc)
-    // printfn "%s at %s" (mvid.ToString()) (DateTime.Now.ToString())
     mvid
+
+let getFileHash filename =
+    use sha256 = System.Security.Cryptography.SHA256.Create()
+    use stream = File.OpenRead(filename)
+    let hash = sha256.ComputeHash(stream)
+    BitConverter.ToString(hash).Replace("-", "")
 
 open CliWrap
 
 let argsFile =
-    // FileInfo(@"C:\Users\nojaf\Projects\main-fantomas\src\Fantomas.Core.Tests\Fantomas.Core.Tests.args.txt")
-    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
-    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\FSharp.Core\FSharp.Core.args.txt")
-    FileInfo(@"C:\Users\nojaf\Projects\graph-sample\GraphSample.args.txt")
+    // FileInfo(@"C:\Users\nojaf\Projects\main-fantomas\src\Fantomas.Core\Fantomas.Core.args.txt")
+    FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
+// FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\FSharp.Core\FSharp.Core.args.txt")
+// FileInfo(@"C:\Users\nojaf\Projects\graph-sample\GraphSample.args.txt")
 
 let total = 50
 
+type CompilationResultInfo =
+    {
+        Mvid: Guid
+        BinaryFileHash: string
+        PdbFileHash: string option
+        SignatureDataHash: string option
+    }
+
+    override x.ToString() =
+        let mvid = x.Mvid.ToString("N")
+
+        let pdb =
+            match x.PdbFileHash with
+            | None -> ""
+            | Some pdb -> $", pdb: {pdb}"
+
+        $"mvid: {mvid}, binary: {x.BinaryFileHash}{pdb}"
+
 [<RequireQualifiedAccess>]
-type MvidResult<'mivd when 'mivd: equality> =
+type CompilationResult<'TResult when 'TResult: equality> =
     | None
-    | Stable of mvid: 'mivd * times: int
-    | Unstable of initial: 'mivd * times: int * variant: 'mivd
+    | Stable of result: 'TResult * times: int
+    | Unstable of initial: 'TResult * times: int * variant: 'TResult
 
-for dll in
-    Directory.EnumerateFiles(
-        // @"C:\Users\nojaf\Projects\fsharp\artifacts\obj\FSharp.Core\Debug\netstandard2.0",
-        // @"C:\Users\nojaf\Projects\fsharp\artifacts\obj\FSharp.Compiler.Service\Debug\netstandard2.0",
-        @"C:\Users\nojaf\Projects\graph-sample\obj\Debug\net7.0",
-        "*.dll"
-    ) do
-    File.Delete(dll)
+let oldFiles (argsFile: FileInfo) =
+    let outputFile =
+        File.ReadAllLines(argsFile.FullName)
+        |> Array.tryPick (fun line ->
+            if not (line.StartsWith("-o:")) then
+                None
+            else
+                let objPath = line.Replace("-o:", "")
 
-let runs =
-    (MvidResult.None, [ 1..total ])
-    ||> List.fold (fun prevMvid idx ->
-        match prevMvid with
-        | MvidResult.Unstable _ -> prevMvid
+                let objPath =
+                    if File.Exists objPath then
+                        objPath
+                    else
+                        Path.Combine(argsFile.Directory.FullName, objPath)
+
+                FileInfo(objPath) |> Some
+        )
+
+    match outputFile with
+    | None -> Seq.empty
+    | Some outFile ->
+        seq {
+            yield! Directory.EnumerateFiles(outFile.Directory.FullName, "*.dll")
+            yield! Directory.EnumerateFiles(outFile.Directory.FullName, "*.pdb")
+            yield! Directory.EnumerateFiles(outFile.Directory.FullName, "*.signature-data.json")
+        }
+
+let cleanUp argsFile =
+    for file in oldFiles argsFile do
+        File.Delete(file)
+
+let compile (argsFile: FileInfo) (additionalArguments: string) (suffix: string) =
+    let args = $"@{argsFile.Name}"
+
+    Cli
+        .Wrap(@"C:\Users\nojaf\Projects\fsharp\artifacts\bin\fsc\Release\net7.0\win-x64\publish\fsc.exe")
+        .WithWorkingDirectory(argsFile.DirectoryName)
+        .WithArguments($"\"{args}\" %s{additionalArguments}") // --debug-
+        .ExecuteAsync()
+        .Task.Wait()
+
+    let binaryPath =
+        let binaryPath = File.ReadAllLines(argsFile.FullName).[0].Replace("-o:", "")
+
+        if File.Exists binaryPath then
+            binaryPath
+        else
+            Path.Combine(argsFile.DirectoryName, binaryPath)
+
+    let binary = FileInfo(binaryPath)
+    let binaryHash = getFileHash binary.FullName
+    let mvid = getMvid binary.FullName
+
+    let pdbFile: FileInfo option =
+        let path = Path.ChangeExtension(binary.FullName, ".pdb")
+
+        if not (File.Exists path) then
+            None
+        else
+            Some(FileInfo(path))
+
+    let signatureData: FileInfo option =
+        let path = Path.ChangeExtension(binary.FullName, ".signature-data.json")
+
+        if not (File.Exists path) then
+            None
+        else
+            Some(FileInfo(path))
+
+    let result =
+        {
+            Mvid = mvid
+            BinaryFileHash = binaryHash
+            PdbFileHash = pdbFile |> Option.map (fun fi -> getFileHash fi.FullName)
+            SignatureDataHash = signatureData |> Option.map (fun fi -> getFileHash fi.FullName)
+        }
+
+    printfn $"Compiled %s{suffix}, write date %A{binary.LastWriteTime}, result: {result}"
+
+    let renameToRun (file: FileInfo) =
+        let differentPath =
+            Path.Combine(
+                file.Directory.FullName,
+                $"{Path.GetFileNameWithoutExtension(file.Name)}-%s{suffix}{file.Extension}"
+            )
+
+        File.Move(file.FullName, differentPath)
+
+    renameToRun binary
+    Option.iter renameToRun pdbFile
+    Option.iter renameToRun signatureData
+
+    result
+
+let runs argsFile =
+    cleanUp argsFile
+
+    (CompilationResult.None, [ 1..total ])
+    ||> List.fold (fun (prevResult: CompilationResult<CompilationResultInfo>) idx ->
+        match prevResult with
+        | CompilationResult.Unstable _ -> prevResult
         | _ ->
 
         try
-            let args = $"@{argsFile.Name}"
+            let result =
+                compile
+                    argsFile
+                    "--test:GraphBasedChecking --test:DumpCheckingGraph --debug:portable --test:DumpSignatureData"
+                    $"%02i{idx}"
 
-            Cli
-                .Wrap(
-                    @"C:\Users\nojaf\Projects\safesparrow-fsharp\artifacts\bin\fsc\Release\net7.0\win-x64\publish\fsc.exe"
-                )
-                .WithWorkingDirectory(argsFile.DirectoryName)
-                .WithArguments($"\"{args}\" --test:GraphBasedChecking --test:DumpCheckingGraph") // --debug-
-                .ExecuteAsync()
-                .Task.Wait()
-
-            let binaryPath =
-                let binaryPath = File.ReadAllLines(argsFile.FullName).[0].Replace("-o:", "")
-
-                if File.Exists binaryPath then
-                    binaryPath
+            match prevResult with
+            | CompilationResult.Unstable _
+            | CompilationResult.None _ -> CompilationResult.Stable(result, 1)
+            | CompilationResult.Stable(prevResult, times) ->
+                if prevResult <> result then
+                    CompilationResult.Unstable(prevResult, times, result)
                 else
-                    Path.Combine(argsFile.DirectoryName, binaryPath)
-
-            let binary = FileInfo(binaryPath)
-            let mvid = getMvid binary.FullName
-            printfn "Compiled %02i, write date %A, mvid: %s" idx binary.LastWriteTime (mvid.ToString("N"))
-
-            let differentPath =
-                Path.Combine(binary.Directory.FullName, $"{Path.GetFileNameWithoutExtension(binary.Name)}-{idx}.dll")
-
-            File.Move(binaryPath, differentPath)
-
-            match prevMvid with
-            | MvidResult.Unstable _
-            | MvidResult.None _ -> MvidResult.Stable(mvid, 1)
-            | MvidResult.Stable(prevMvid, times) ->
-                if prevMvid <> mvid then
-                    MvidResult.Unstable(prevMvid, times, mvid)
-                else
-                    MvidResult.Stable(prevMvid, times + 1)
+                    CompilationResult.Stable(prevResult, times + 1)
         with ex ->
             printfn "%s" ex.Message
-            prevMvid
+            prevResult
     )
 
-printfn "%A" runs
+printfn "%A" (runs argsFile)
+
+let compileTwice (argsFile: FileInfo) =
+    try
+        cleanUp argsFile
+
+        let defaultResult =
+            compile argsFile "--debug:portable --test:DumpSignatureData" "default"
+
+        let graphResult =
+            compile
+                argsFile
+                "--test:GraphBasedChecking --test:DumpCheckingGraph --debug:portable --test:DumpSignatureData"
+                "graphhh"
+
+        printfn "%A" (defaultResult, graphResult)
+    with ex ->
+        printfn "%s" ex.Message
+
+compileTwice argsFile

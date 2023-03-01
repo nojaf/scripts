@@ -1,5 +1,5 @@
 #r "nuget: CliWrap, 3.6.0"
-#r "nuget: MSBuild.StructuredLogger, 2.1.746"
+#r "nuget: MSBuild.StructuredLogger, 2.1.787"
 
 open System.IO
 open Microsoft.Build.Logging.StructuredLogger
@@ -65,7 +65,7 @@ if not (project.EndsWith(".fsproj")) then
 
 Cli
     .Wrap("dotnet")
-    .WithArguments($"build {project} -bl --no-incremental")
+    .WithArguments($"build {project} -bl --no-incremental -c Release")
     .ExecuteAsync()
     .Task.Wait()
 

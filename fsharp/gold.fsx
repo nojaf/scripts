@@ -5,43 +5,37 @@ open System.IO
 open TextCopy
 
 let targetFolder =
-    @"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\test\data\features\quickFixes\updateRecordFieldTypeInSignatureFix"
+    @"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\test\data\features\intentions\generateSignatureFile"
 
 let (</>) a b = Path.Combine(a, b)
 
-let mkTest testName (implContent: string) (signatureContentBefore: string) (signatureContentAfter: string) =
+let mkTest
+    testName
+    (implContent: string)
+    //(signatureContentBefore: string)
+    (signatureContentAfter: string)
+    =
     let implContent = implContent.Trim()
-    let signatureContentBefore = signatureContentBefore.Trim()
-    let signatureContentAfter = signatureContentAfter.Trim()
+    // let signatureContentBefore = signatureContentBefore.Trim()
+    let signatureContentAfter = signatureContentAfter
     File.WriteAllText(targetFolder </> $"{testName}.fs", implContent)
     File.WriteAllText(targetFolder </> $"{testName}.fs.gold", implContent)
-    File.WriteAllText(targetFolder </> $"{testName}.fsi", signatureContentBefore)
+    // File.WriteAllText(targetFolder </> $"{testName}.fsi", signatureContentBefore)
     File.WriteAllText(targetFolder </> $"{testName}.fsi.gold", signatureContentAfter)
 
     ClipboardService.SetText($"[<Test>] member x.``{testName}`` () = x.DoNamedTestWithSignature()")
 
 mkTest
-    "Don't prefix type - 01"
-    """module Test
+    "ModuleStructure - 01"
+    """module Foo
 
-type R{caret} =
-    { A: int
-      B: System.DateTime }
+open System
+{caret}
+let a = 0
 """
     """module Test
 
 open System
-
-type R =
-    { A: int }
-"""
-    """module Test
-
-open System
-
-type R =
-    { A: int
-      B: DateTime }
 """
 
 Directory.EnumerateFiles(targetFolder)
