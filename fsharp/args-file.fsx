@@ -1,9 +1,11 @@
 #r "nuget: CliWrap, 3.6.0"
 #r "nuget: MSBuild.StructuredLogger, 2.1.787"
+#r "nuget: Argu, 6.1.1"
 
 open System.IO
 open Microsoft.Build.Logging.StructuredLogger
 open CliWrap
+open Argu
 
 /// Create a text file with the F# compiler arguments scrapped from an binary log file.
 /// Run `dotnet build --no-incremental -bl` to create the binlog file.
@@ -55,7 +57,23 @@ let mkCompilerArgsFromBinLog file =
         File.WriteAllText(argsPath, content)
         printfn "Wrote %s" argsPath
 
-let project = Array.last fsi.CommandLineArgs
+type Arguments =
+    | [<AltCommandLine("-c")>] Configuration of string
+    | [<MainCommand>] Fsproj of string
+
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Configuration _ -> "Debug or Release"
+            | Fsproj _ -> "An fsproj file"
+
+let parser = ArgumentParser.Create<Arguments>(programName = "args-file.fsx")
+let results = parser.Parse(fsi.CommandLineArgs, ignoreUnrecognized = true)
+// printfn "%A" results
+let project =
+    results.GetResults <@ Arguments.Fsproj @>
+    |> List.filter (fun s -> s.EndsWith(".fsproj"))
+    |> List.head
 
 if not (File.Exists project) then
     failwithf "%s does not exist" project
@@ -63,9 +81,14 @@ if not (File.Exists project) then
 if not (project.EndsWith(".fsproj")) then
     failwithf "%s is not an fsharp project file" project
 
+let configuration =
+    match results.TryGetResult <@ Arguments.Configuration @> with
+    | Some configuration -> configuration
+    | None -> "Debug"
+
 Cli
     .Wrap("dotnet")
-    .WithArguments($"build {project} -bl --no-incremental -c Release")
+    .WithArguments($"build {project} -bl --no-incremental -c {configuration}")
     .ExecuteAsync()
     .Task.Wait()
 

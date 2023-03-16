@@ -14,6 +14,46 @@ let getMvid refDll =
     let mvid = sourceReader.GetGuid(loc)
     mvid
 
+// Source: https://stackoverflow.com/questions/64393919/load-resource-from-assembly-without-loading-the-assembly
+let getResourceFromBinary (startWith: string) dll =
+    use embeddedReader = new PEReader(File.OpenRead dll)
+    let sourceReader = embeddedReader.GetMetadataReader()
+
+    sourceReader.ManifestResources
+    |> Seq.tryPick (fun resHandle ->
+        let resource = sourceReader.GetManifestResource(resHandle)
+
+        if resource.Name.IsNil then
+            None
+        else
+
+        let name = sourceReader.GetString(resource.Name)
+
+        if not (name.StartsWith(startWith)) then
+            None
+        else
+
+        let resourceDirectory =
+            embeddedReader.GetSectionData(embeddedReader.PEHeaders.CorHeader.ResourcesDirectory.RelativeVirtualAddress)
+
+        let reader =
+            resourceDirectory.GetReader(int resource.Offset, resourceDirectory.Length - int resource.Offset)
+
+        let size = reader.ReadUInt32()
+        let resourceBytes = reader.ReadBytes(int size)
+        Some resourceBytes
+    )
+
+let getFSCompResource = getResourceFromBinary "FSComp."
+
+let geFSharpOptimizationDataResource =
+    getResourceFromBinary "FSharpOptimizationData."
+
+let getFSharpSignatureDataResource = getResourceFromBinary "FSharpSignatureData."
+let getFSIStringsResource = getResourceFromBinary "FSIstrings."
+let getFSStringsResource = getResourceFromBinary "FSStrings."
+let getUtilsStringsResource = getResourceFromBinary "UtilsStrings."
+
 let getFileHash filename =
     use sha256 = System.Security.Cryptography.SHA256.Create()
     use stream = File.OpenRead(filename)
@@ -24,11 +64,13 @@ open CliWrap
 
 let argsFile =
     // FileInfo(@"C:\Users\nojaf\Projects\main-fantomas\src\Fantomas.Core\Fantomas.Core.args.txt")
-    FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
-// FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\FSharp.Core\FSharp.Core.args.txt")
-// FileInfo(@"C:\Users\nojaf\Projects\graph-sample\GraphSample.args.txt")
+    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
+    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\FSharp.Core\FSharp.Core.args.txt")
+    // FileInfo(@"C:\Users\nojaf\Projects\graph-sample\GraphSample.args.txt")
+    FileInfo(@"C:\Users\nojaf\Projects\main-fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
+// FileInfo(@"C:\Users\nojaf\Projects\DeterminismSample\DeterminismSample.args.txt")
 
-let total = 50
+let total = 10
 
 type CompilationResultInfo =
     {
@@ -46,7 +88,12 @@ type CompilationResultInfo =
             | None -> ""
             | Some pdb -> $", pdb: {pdb}"
 
-        $"mvid: {mvid}, binary: {x.BinaryFileHash}{pdb}"
+        let signatureData =
+            match x.SignatureDataHash with
+            | None -> ""
+            | Some signatureData -> $", signature json: {signatureData}"
+
+        $"mvid: {mvid}, binary: {x.BinaryFileHash}{pdb}{signatureData}"
 
 [<RequireQualifiedAccess>]
 type CompilationResult<'TResult when 'TResult: equality> =
@@ -78,7 +125,7 @@ let oldFiles (argsFile: FileInfo) =
         seq {
             yield! Directory.EnumerateFiles(outFile.Directory.FullName, "*.dll")
             yield! Directory.EnumerateFiles(outFile.Directory.FullName, "*.pdb")
-            yield! Directory.EnumerateFiles(outFile.Directory.FullName, "*.signature-data.json")
+            yield! Directory.EnumerateFiles(outFile.Directory.FullName, "*.signature-data*.json")
         }
 
 let cleanUp argsFile =
@@ -131,7 +178,7 @@ let compile (argsFile: FileInfo) (additionalArguments: string) (suffix: string) 
             SignatureDataHash = signatureData |> Option.map (fun fi -> getFileHash fi.FullName)
         }
 
-    printfn $"Compiled %s{suffix}, write date %A{binary.LastWriteTime}, result: {result}"
+    printfn $"Compiled %s{suffix}, write date %A{binary.LastWriteTime}, result: \n    {result}"
 
     let renameToRun (file: FileInfo) =
         let differentPath =
@@ -177,7 +224,7 @@ let runs argsFile =
             prevResult
     )
 
-printfn "%A" (runs argsFile)
+// printfn "%A" (runs argsFile)
 
 let compileTwice (argsFile: FileInfo) =
     try
@@ -192,6 +239,7 @@ let compileTwice (argsFile: FileInfo) =
                 "--test:GraphBasedChecking --test:DumpCheckingGraph --debug:portable --test:DumpSignatureData"
                 "graphhh"
 
+        printfn "Are binaries equal: %s" (if defaultResult = graphResult then "yes" else "no")
         printfn "%A" (defaultResult, graphResult)
     with ex ->
         printfn "%s" ex.Message
