@@ -7,6 +7,14 @@ open System.IO
 open System.Reflection.Metadata
 open System.Reflection.PortableExecutable
 
+let argsFile =
+    // FileInfo(@"C:\Users\nojaf\Projects\main-fantomas\src\Fantomas.Core\Fantomas.Core.args.txt")
+    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
+    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\FSharp.Core\FSharp.Core.args.txt")
+    // FileInfo(@"C:\Users\nojaf\Projects\graph-sample\GraphSample.args.txt")
+    FileInfo(@"C:\Users\nojaf\Projects\main-fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
+// FileInfo(@"C:\Users\nojaf\Projects\DeterminismSample\DeterminismSample.args.txt")
+
 let getMvid refDll =
     use embeddedReader = new PEReader(File.OpenRead refDll)
     let sourceReader = embeddedReader.GetMetadataReader()
@@ -62,38 +70,27 @@ let getFileHash filename =
 
 open CliWrap
 
-let argsFile =
-    // FileInfo(@"C:\Users\nojaf\Projects\main-fantomas\src\Fantomas.Core\Fantomas.Core.args.txt")
-    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
-    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\FSharp.Core\FSharp.Core.args.txt")
-    // FileInfo(@"C:\Users\nojaf\Projects\graph-sample\GraphSample.args.txt")
-    FileInfo(@"C:\Users\nojaf\Projects\main-fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
-// FileInfo(@"C:\Users\nojaf\Projects\DeterminismSample\DeterminismSample.args.txt")
-
-let total = 10
+let total = 50
 
 type CompilationResultInfo =
     {
+        Suffix: string
+        Duration: TimeSpan
         Mvid: Guid
         BinaryFileHash: string
         PdbFileHash: string option
-        SignatureDataHash: string option
+        SignatureDataJsonHash: string option
+        FSComp: byte array option
+        FSharpOptimizationData: byte array option
+        FSharpSignatureData: byte array option
+        FSIstrings: byte array option
+        FSStrings: byte array option
+        UtilsStrings: byte array option
     }
 
     override x.ToString() =
         let mvid = x.Mvid.ToString("N")
-
-        let pdb =
-            match x.PdbFileHash with
-            | None -> ""
-            | Some pdb -> $", pdb: {pdb}"
-
-        let signatureData =
-            match x.SignatureDataHash with
-            | None -> ""
-            | Some signatureData -> $", signature json: {signatureData}"
-
-        $"mvid: {mvid}, binary: {x.BinaryFileHash}{pdb}{signatureData}"
+        $"mvid: {mvid}, binary: {x.BinaryFileHash} in %A{x.Duration}"
 
 [<RequireQualifiedAccess>]
 type CompilationResult<'TResult when 'TResult: equality> =
@@ -135,12 +132,13 @@ let cleanUp argsFile =
 let compile (argsFile: FileInfo) (additionalArguments: string) (suffix: string) =
     let args = $"@{argsFile.Name}"
 
-    Cli
-        .Wrap(@"C:\Users\nojaf\Projects\fsharp\artifacts\bin\fsc\Release\net7.0\win-x64\publish\fsc.exe")
-        .WithWorkingDirectory(argsFile.DirectoryName)
-        .WithArguments($"\"{args}\" %s{additionalArguments}") // --debug-
-        .ExecuteAsync()
-        .Task.Wait()
+    let compilationResult =
+        Cli
+            .Wrap(@"C:\Users\nojaf\Projects\fsharp\artifacts\bin\fsc\Release\net7.0\win-x64\publish\fsc.exe")
+            .WithWorkingDirectory(argsFile.DirectoryName)
+            .WithArguments($"\"{args}\" %s{additionalArguments}") // --debug-
+            .ExecuteAsync()
+            .Task.Result
 
     let binaryPath =
         let binaryPath = File.ReadAllLines(argsFile.FullName).[0].Replace("-o:", "")
@@ -172,13 +170,21 @@ let compile (argsFile: FileInfo) (additionalArguments: string) (suffix: string) 
 
     let result =
         {
+            Suffix = suffix
+            Duration = compilationResult.RunTime
             Mvid = mvid
             BinaryFileHash = binaryHash
             PdbFileHash = pdbFile |> Option.map (fun fi -> getFileHash fi.FullName)
-            SignatureDataHash = signatureData |> Option.map (fun fi -> getFileHash fi.FullName)
+            SignatureDataJsonHash = signatureData |> Option.map (fun fi -> getFileHash fi.FullName)
+            FSComp = getFSCompResource binaryPath
+            FSharpOptimizationData = geFSharpOptimizationDataResource binaryPath
+            FSharpSignatureData = getFSharpSignatureDataResource binaryPath
+            FSIstrings = getFSIStringsResource binaryPath
+            FSStrings = getFSStringsResource binaryPath
+            UtilsStrings = getUtilsStringsResource binaryPath
         }
 
-    printfn $"Compiled %s{suffix}, write date %A{binary.LastWriteTime}, result: \n    {result}"
+    printfn $"Compiled %s{suffix}, write date %A{binary.LastWriteTime}, result: {result}"
 
     let renameToRun (file: FileInfo) =
         let differentPath =
@@ -226,6 +232,49 @@ let runs argsFile =
 
 // printfn "%A" (runs argsFile)
 
+let compareResultInfo (a: CompilationResultInfo) (b: CompilationResultInfo) =
+    let conformities = ResizeArray<string>()
+    let differences = ResizeArray<string>()
+
+    let printList items =
+        items |> Seq.map (sprintf "    %s") |> String.concat "\n" |> printfn "%s"
+
+    let compare key (a: 'T) (b: 'T) =
+        if a = b then
+            conformities.Add(key)
+        else
+            differences.Add(key)
+
+    let compareOption key (a: 'T option) (b: 'T option) =
+        match a, b with
+        | None, None -> ()
+        | _ -> compare key a b
+
+    compare "mvid" a.Mvid b.Mvid
+    compare "binary file hash" a.BinaryFileHash b.BinaryFileHash
+    compareOption "pdbFileHash" a.PdbFileHash b.PdbFileHash
+    compareOption "signature data (json)" a.SignatureDataJsonHash b.SignatureDataJsonHash
+    compareOption "FSComp" a.FSComp b.FSComp
+    compareOption "FSharpOptimizationData" a.FSharpOptimizationData b.FSharpOptimizationData
+    compareOption "FSharpSignatureData" a.FSharpSignatureData b.FSharpSignatureData
+    compareOption "FSIstrings" a.FSIstrings b.FSIstrings
+    compareOption "FSStrings" a.FSStrings b.FSStrings
+    compareOption "UtilsStrings" a.UtilsStrings b.UtilsStrings
+
+    printfn $"\nComparing %s{a.Suffix} with %s{b.Suffix}"
+    printfn "-------------------------------------------"
+    printfn "Are binaries equal: %s" (if Seq.isEmpty differences then "yes\n" else "no\n")
+
+    if not (Seq.isEmpty conformities) then
+        printfn "Conformities:"
+        printList conformities
+
+    if not (Seq.isEmpty differences) then
+        printfn "Differences:"
+        printList differences
+
+    printfn ""
+
 let compileTwice (argsFile: FileInfo) =
     try
         cleanUp argsFile
@@ -237,10 +286,9 @@ let compileTwice (argsFile: FileInfo) =
             compile
                 argsFile
                 "--test:GraphBasedChecking --test:DumpCheckingGraph --debug:portable --test:DumpSignatureData"
-                "graphhh"
+                "graph"
 
-        printfn "Are binaries equal: %s" (if defaultResult = graphResult then "yes" else "no")
-        printfn "%A" (defaultResult, graphResult)
+        compareResultInfo defaultResult graphResult
     with ex ->
         printfn "%s" ex.Message
 
