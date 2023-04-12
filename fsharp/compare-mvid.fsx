@@ -8,12 +8,13 @@ open System.Reflection.Metadata
 open System.Reflection.PortableExecutable
 
 let argsFile =
-    // FileInfo(@"C:\Users\nojaf\Projects\main-fantomas\src\Fantomas.Core\Fantomas.Core.args.txt")
-    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
-    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\FSharp.Core\FSharp.Core.args.txt")
-    // FileInfo(@"C:\Users\nojaf\Projects\graph-sample\GraphSample.args.txt")
-    FileInfo(@"C:\Users\nojaf\Projects\main-fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
+    FileInfo(@"C:\Users\nojaf\Projects\main-fantomas\src\Fantomas.Core\Fantomas.Core.args.txt")
+// FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
+// FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\FSharp.Core\FSharp.Core.args.txt")
+// FileInfo(@"C:\Users\nojaf\Projects\graph-sample\GraphSample.args.txt")
+// FileInfo(@"C:\Users\nojaf\Projects\main-fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
 // FileInfo(@"C:\Users\nojaf\Projects\DeterminismSample\DeterminismSample.args.txt")
+// FileInfo(@"C:\Users\nojaf\Projects\main-fsharp\src\FSharp.Core\FSharp.Core.args.txt")
 
 let getMvid refDll =
     use embeddedReader = new PEReader(File.OpenRead refDll)
@@ -70,10 +71,21 @@ let getFileHash filename =
 
 open CliWrap
 
+let ildasm dll =
+    let output = Path.ChangeExtension(dll, ".txt")
+
+    Cli
+        .Wrap(@"C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.8.1 Tools\x64\ildasm.exe")
+        .WithArguments($"/out:\"%s{output}\" \"%s{dll}\"")
+        .ExecuteAsync()
+        .Task.Wait()
+
 let total = 50
 
+[<CustomEquality; NoComparison>]
 type CompilationResultInfo =
     {
+        BinaryPath: string
         Suffix: string
         Duration: TimeSpan
         Mvid: Guid
@@ -91,6 +103,35 @@ type CompilationResultInfo =
     override x.ToString() =
         let mvid = x.Mvid.ToString("N")
         $"mvid: {mvid}, binary: {x.BinaryFileHash} in %A{x.Duration}"
+
+    override x.Equals other =
+        match other with
+        | :? CompilationResultInfo as other ->
+            x.Mvid = other.Mvid
+            && x.BinaryFileHash = other.BinaryFileHash
+            && x.PdbFileHash = other.PdbFileHash
+            && x.SignatureDataJsonHash = other.SignatureDataJsonHash
+            && x.FSComp = other.FSComp
+            && x.FSharpOptimizationData = other.FSharpOptimizationData
+            && x.FSharpSignatureData = other.FSharpSignatureData
+            && x.FSIstrings = other.FSIstrings
+            && x.FSStrings = other.FSStrings
+            && x.UtilsStrings = other.UtilsStrings
+        | _ -> false
+
+    override x.GetHashCode() =
+        let hash = HashCode()
+        hash.Add(x.Mvid.GetHashCode())
+        hash.Add(x.BinaryFileHash.GetHashCode())
+        hash.Add(x.PdbFileHash.GetHashCode())
+        hash.Add(x.SignatureDataJsonHash.GetHashCode())
+        hash.Add(x.FSComp.GetHashCode())
+        hash.Add(x.FSharpOptimizationData.GetHashCode())
+        hash.Add(x.FSharpSignatureData.GetHashCode())
+        hash.Add(x.FSIstrings.GetHashCode())
+        hash.Add(x.FSStrings.GetHashCode())
+        hash.Add(x.UtilsStrings.GetHashCode())
+        hash.ToHashCode()
 
 [<RequireQualifiedAccess>]
 type CompilationResult<'TResult when 'TResult: equality> =
@@ -134,6 +175,7 @@ let compile (argsFile: FileInfo) (additionalArguments: string) (suffix: string) 
 
     let compilationResult =
         Cli
+            // .Wrap(@"C:\Users\nojaf\Projects\main-fsharp\artifacts\bin\fsc\Release\net7.0\win-x64\publish\fsc.exe")
             .Wrap(@"C:\Users\nojaf\Projects\fsharp\artifacts\bin\fsc\Release\net7.0\win-x64\publish\fsc.exe")
             .WithWorkingDirectory(argsFile.DirectoryName)
             .WithArguments($"\"{args}\" %s{additionalArguments}") // --debug-
@@ -168,24 +210,6 @@ let compile (argsFile: FileInfo) (additionalArguments: string) (suffix: string) 
         else
             Some(FileInfo(path))
 
-    let result =
-        {
-            Suffix = suffix
-            Duration = compilationResult.RunTime
-            Mvid = mvid
-            BinaryFileHash = binaryHash
-            PdbFileHash = pdbFile |> Option.map (fun fi -> getFileHash fi.FullName)
-            SignatureDataJsonHash = signatureData |> Option.map (fun fi -> getFileHash fi.FullName)
-            FSComp = getFSCompResource binaryPath
-            FSharpOptimizationData = geFSharpOptimizationDataResource binaryPath
-            FSharpSignatureData = getFSharpSignatureDataResource binaryPath
-            FSIstrings = getFSIStringsResource binaryPath
-            FSStrings = getFSStringsResource binaryPath
-            UtilsStrings = getUtilsStringsResource binaryPath
-        }
-
-    printfn $"Compiled %s{suffix}, write date %A{binary.LastWriteTime}, result: {result}"
-
     let renameToRun (file: FileInfo) =
         let differentPath =
             Path.Combine(
@@ -194,43 +218,33 @@ let compile (argsFile: FileInfo) (additionalArguments: string) (suffix: string) 
             )
 
         File.Move(file.FullName, differentPath)
+        differentPath
 
-    renameToRun binary
-    Option.iter renameToRun pdbFile
-    Option.iter renameToRun signatureData
+    let writeDate = binary.LastWriteTime
+    let binaryPath = renameToRun binary
+    let pdbFile = Option.map renameToRun pdbFile
+    let signatureData = Option.map renameToRun signatureData
+
+    let result =
+        {
+            BinaryPath = binaryPath
+            Suffix = suffix
+            Duration = compilationResult.RunTime
+            Mvid = mvid
+            BinaryFileHash = binaryHash
+            PdbFileHash = pdbFile |> Option.map getFileHash
+            SignatureDataJsonHash = signatureData |> Option.map getFileHash
+            FSComp = getFSCompResource binaryPath
+            FSharpOptimizationData = geFSharpOptimizationDataResource binaryPath
+            FSharpSignatureData = getFSharpSignatureDataResource binaryPath
+            FSIstrings = getFSIStringsResource binaryPath
+            FSStrings = getFSStringsResource binaryPath
+            UtilsStrings = getUtilsStringsResource binaryPath
+        }
+
+    printfn $"Compiled %s{suffix}, write date %A{writeDate}, result: {result}"
 
     result
-
-let runs argsFile =
-    cleanUp argsFile
-
-    (CompilationResult.None, [ 1..total ])
-    ||> List.fold (fun (prevResult: CompilationResult<CompilationResultInfo>) idx ->
-        match prevResult with
-        | CompilationResult.Unstable _ -> prevResult
-        | _ ->
-
-        try
-            let result =
-                compile
-                    argsFile
-                    "--test:GraphBasedChecking --test:DumpCheckingGraph --debug:portable --test:DumpSignatureData"
-                    $"%02i{idx}"
-
-            match prevResult with
-            | CompilationResult.Unstable _
-            | CompilationResult.None _ -> CompilationResult.Stable(result, 1)
-            | CompilationResult.Stable(prevResult, times) ->
-                if prevResult <> result then
-                    CompilationResult.Unstable(prevResult, times, result)
-                else
-                    CompilationResult.Stable(prevResult, times + 1)
-        with ex ->
-            printfn "%s" ex.Message
-            prevResult
-    )
-
-// printfn "%A" (runs argsFile)
 
 let compareResultInfo (a: CompilationResultInfo) (b: CompilationResultInfo) =
     let conformities = ResizeArray<string>()
@@ -270,10 +284,52 @@ let compareResultInfo (a: CompilationResultInfo) (b: CompilationResultInfo) =
         printList conformities
 
     if not (Seq.isEmpty differences) then
+        ildasm a.BinaryPath
+        ildasm b.BinaryPath
+
         printfn "Differences:"
         printList differences
 
     printfn ""
+
+let runs argsFile =
+    cleanUp argsFile
+
+    let result =
+        (CompilationResult.None, [ 1..total ])
+        ||> List.fold (fun (prevResult: CompilationResult<CompilationResultInfo>) idx ->
+            match prevResult with
+            | CompilationResult.Unstable _ -> prevResult
+            | _ ->
+
+            try
+                let result =
+                    compile
+                        argsFile
+                        "--test:GraphBasedChecking --test:DumpCheckingGraph --debug:portable --test:DumpSignatureData --test:ParallelIlxGen"
+                        $"%02i{idx}"
+
+                match prevResult with
+                | CompilationResult.Unstable _
+                | CompilationResult.None _ -> CompilationResult.Stable(result, 1)
+                | CompilationResult.Stable(prevResult, times) ->
+                    if prevResult <> result then
+                        CompilationResult.Unstable(prevResult, times, result)
+                    else
+                        CompilationResult.Stable(prevResult, times + 1)
+            with ex ->
+                printfn "%s" ex.Message
+                prevResult
+        )
+
+    match result with
+    | CompilationResult.None -> printfn "No result"
+    | CompilationResult.Unstable(initial, times, variant) ->
+        printfn $"Unstable after %i{times} runs"
+        compareResultInfo initial variant
+    | CompilationResult.Stable(result, times) -> printfn $"Stable for %i{times} runs. Mvid: %A{result.Mvid}"
+
+runs argsFile
 
 let compileTwice (argsFile: FileInfo) =
     try
@@ -285,11 +341,12 @@ let compileTwice (argsFile: FileInfo) =
         let graphResult =
             compile
                 argsFile
-                "--test:GraphBasedChecking --test:DumpCheckingGraph --debug:portable --test:DumpSignatureData"
+                "--debug:portable --test:DumpSignatureData"
+                // "--test:GraphBasedChecking --test:DumpCheckingGraph --debug:portable --test:DumpSignatureData"
                 "graph"
 
         compareResultInfo defaultResult graphResult
     with ex ->
-        printfn "%s" ex.Message
+        printfn "%A" ex
 
-compileTwice argsFile
+// compileTwice argsFile
