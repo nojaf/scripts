@@ -7,3 +7,6 @@ let trimLines (path: string) =
 
 trimLines
     @"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\src\FSharp.Psi.Intentions\src\Intentions\GenerateSignatureFileAction.fs"
+
+trimLines
+    @"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\src\FSharp.Psi.Features\src\CodeCompletion\Rules\NamedUnionCaseFieldsPatRule.fs"

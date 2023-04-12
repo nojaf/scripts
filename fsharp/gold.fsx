@@ -5,7 +5,7 @@ open System.IO
 open TextCopy
 
 let targetFolder =
-    @"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\test\data\features\intentions\generateSignatureFile"
+    @"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\test\data\features\completion"
 
 let (</>) a b = Path.Combine(a, b)
 
@@ -13,35 +13,44 @@ let mkTest
     testName
     (implContent: string)
     //(signatureContentBefore: string)
-    (signatureContentAfter: string)
+    // (signatureContentAfter: string)
     =
     let implContent = implContent.Trim()
     // let signatureContentBefore = signatureContentBefore.Trim()
-    let signatureContentAfter = signatureContentAfter
+    // let signatureContentAfter = signatureContentAfter
     File.WriteAllText(targetFolder </> $"{testName}.fs", implContent)
-    File.WriteAllText(targetFolder </> $"{testName}.fs.gold", implContent)
+    // File.WriteAllText(targetFolder </> $"{testName}.fs.gold", implContent)
     // File.WriteAllText(targetFolder </> $"{testName}.fsi", signatureContentBefore)
-    File.WriteAllText(targetFolder </> $"{testName}.fsi.gold", signatureContentAfter)
+    // File.WriteAllText(targetFolder </> $"{testName}.fsi.gold", signatureContentAfter)
 
-    ClipboardService.SetText($"[<Test>] member x.``{testName}`` () = x.DoNamedTestWithSignature()")
+    ClipboardService.SetText($"[<Test>] member x.``{testName}`` () = x.DoNamedTest()")
 
 mkTest
-    "ModuleStructure - 01"
-    """module Foo
+    "NamedUnionCaseFieldsPat - 05"
+    """// ${COMPLETE_ITEM:banana}
+// ${COMPLETE_ITEM:citrus}
+module Foo
 
-open System
-{caret}
-let a = 0
-"""
-    """module Test
+type Foo =
+    | Meh of int * string
+    | Bar of apple:int * banana: string * citrus: float
 
-open System
+let a (b: Foo) =
+    match b with
+    | Bar(a = apple; {caret}) ->
 """
 
 Directory.EnumerateFiles(targetFolder)
 |> Seq.iter (fun path ->
-    let content = File.ReadAllText(path)
+    if path.Contains("NamedUnionCaseFieldsPat") then
+        let content = File.ReadAllText(path)
 
-    if content.[content.Length - 1] <> '\n' then
-        File.WriteAllText(path, String.Concat(content, '\n'))
+        if content.[content.Length - 1] <> '\n' then
+            File.WriteAllText(path, String.Concat(content, '\n'))
+)
+
+Directory.EnumerateFiles(targetFolder, "*.tmp")
+|> Seq.iter (fun path ->
+    let gold = Path.ChangeExtension(path, ".gold")
+    File.Move(path, gold, true)
 )
