@@ -9,9 +9,9 @@ open System.Reflection.PortableExecutable
 
 let argsFile =
     // FileInfo(@"C:\Users\nojaf\Projects\main-fantomas\src\Fantomas.Core\Fantomas.Core.args.txt")
-// FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
-// FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\FSharp.Core\FSharp.Core.args.txt")
-// FileInfo(@"C:\Users\nojaf\Projects\graph-sample\GraphSample.args.txt")
+    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
+    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\FSharp.Core\FSharp.Core.args.txt")
+    // FileInfo(@"C:\Users\nojaf\Projects\graph-sample\GraphSample.args.txt")
     FileInfo(@"C:\Users\nojaf\Projects\main-fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
 // FileInfo(@"C:\Users\nojaf\Projects\DeterminismSample\DeterminismSample.args.txt")
 // FileInfo(@"C:\Users\nojaf\Projects\main-fsharp\src\FSharp.Core\FSharp.Core.args.txt")
@@ -79,6 +79,12 @@ let ildasm dll =
         .WithArguments($"/out:\"%s{output}\" \"%s{dll}\"")
         .ExecuteAsync()
         .Task.Wait()
+
+ildasm
+    @"C:\Users\nojaf\Projects\deterministic-fsharp-compiler\.repositories\fantomas\.results\Fantomas.Core\sequential-001\Fantomas.Core.dll"
+
+ildasm
+    @"C:\Users\nojaf\Projects\deterministic-fsharp-compiler\.repositories\fantomas\.results\Fantomas.Core\sequential-002\Fantomas.Core.dll"
 
 let total = 50
 

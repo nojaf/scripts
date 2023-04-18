@@ -1,4 +1,4 @@
-﻿#r "nuget: Fantomas.Core,6.0.0-alpha-006"
+﻿#r "nuget: Fantomas.Core,6.0.0-beta-001"
 
 open Fantomas.Core
 open Fantomas.Core.SyntaxOak
@@ -32,3 +32,16 @@ let file =
     )
 
 CodeFormatter.FormatOakAsync(file) |> Async.RunSynchronously
+
+#r "nuget: Fantomas.Core,6.0.0-beta-001"
+
+open Fantomas.Core
+open Fantomas.Core.SyntaxOak
+
+CodeFormatter.ParseOakAsync(false, "let a = 0 // foo")
+|> Async.RunSynchronously
+|> fun result ->
+    let rec hasContentAfter (node: Node) =
+        node.HasContentAfter || Seq.exists hasContentAfter node.Children
+
+    result |> Array.head |> fst |> hasContentAfter
