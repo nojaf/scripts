@@ -58,11 +58,3 @@ Cli
     .WithArguments($"https://github.com/dotnet/fsharp/commit/{fsharpCommit}")
     .ExecuteAsync()
     .Task.Wait()
-
-
-// Http
-//     .Request("https://aka.ms/dotnet/7.0.4xx/daily/dotnet-sdk-win-x64.zip", httpMethod = "HEAD")
-//     .ResponseUrl.Replace(
-//         "https://dotnetbuilds.azureedge.net",
-//         "https://anon.artifactory.c3.zone/generic-dotnetbuilds-azureedge-remote"
-//     )
