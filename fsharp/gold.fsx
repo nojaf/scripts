@@ -9,21 +9,21 @@ let targetFolder =
 
 let (</>) a b = Path.Combine(a, b)
 
-let mkTest
-    testName
-    (implContent: string)
-    =
+let mkTest testName (implContent: string) =
     File.WriteAllText(targetFolder </> $"{testName}.fs", implContent)
     ClipboardService.SetText($"[<Test>] member x.``{testName}`` () = x.DoNamedTest()")
 
 mkTest
-    "Nested module 01"
+    "Instance Member 01"
     """// ${KIND:SignatureFile}
 // ${SELECT0:Generate signature file title}
 module Foo
 
-    module Bar =
-        open System
+type X =
+    {
+        Y: int
+    }
+    member x.A b c = x.Y - b + c
 {caret}
 """
 
