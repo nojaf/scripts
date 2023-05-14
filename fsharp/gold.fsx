@@ -14,16 +14,14 @@ let mkTest testName (implContent: string) =
     ClipboardService.SetText($"[<Test>] member x.``{testName}`` () = x.DoNamedTest()")
 
 mkTest
-    "Instance Member 01"
+    "Implicit Constructor 02"
     """// ${KIND:SignatureFile}
 // ${SELECT0:Generate signature file title}
 module Foo
 
-type X =
-    {
-        Y: int
-    }
-    member x.A b c = x.Y - b + c
+type A(a:int,b) =
+    do printfn "%s" b
+    member this.B() : int = 0
 {caret}
 """
 
