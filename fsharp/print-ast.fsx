@@ -232,10 +232,16 @@ let print (expr: Expr) =
     )
     |> Async.RunSynchronously
 
-let source =
-    "
-/// Great scotch
-let a () = ()
-"
-
-printfn "%s" ((parseImpl >> map >> print) source)
+"""
+let idempotencyProblem =
+    div [ Id "idempotent-message" ] [
+        h4 [] [ str "The result was not idempotent" ]
+        str "Fantomas was able to format the code, but when formatting the result again, the code changed."
+        br []
+        str "The result after the first format is being displayed."
+        br []
+    ]
+"""
+|> parseImpl
+|> map
+|> print
