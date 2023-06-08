@@ -1,24 +1,11 @@
-﻿// Configuration
-let dotnet = @"C:\Program Files\dotnet\dotnet.exe"
-let fscDll = @"C:\Program Files\dotnet\sdk\7.0.400-preview.23272.51\FSharp\fsc.dll"
-
-#r "nuget: CliWrap, 3.6.0"
-#r "System.Security.Cryptography"
+﻿#load "./common.fsx"
 
 open System
 open System.IO
 open System.Threading.Tasks
 open CliWrap
 open CliWrap.Buffered
-open Microsoft.FSharp.Collections
-
-// Add the printer to F# FSI
-fsi.AddPrinter(fun (ts: TimeSpan) -> $"%02d{ts.Minutes}:%02d{ts.Seconds}.%03d{ts.Milliseconds}")
-fsi.AddPrinter(fun (d: DateTime) -> d.ToShortTimeString())
-fsi.AddPrinter(fun (fi: FileInfo) -> fi.FullName)
-
-module Task =
-    let RunSynchronously (task: Task<'a>) = task.Result
+open Common
 
 type ProjectFileInfo =
     {
@@ -33,35 +20,10 @@ type ProjectFileInfo =
         LineCount: int
     }
 
-[<RequireQualifiedAccess>]
-[<CustomEquality; NoComparison>]
-type BinaryHashResult =
-    | OutputFileNotFound
-    | Hash of value: string * lastWriteTime: DateTime
-
-    override x.Equals y =
-        match x, y with
-        | Hash(value = xv), (:? BinaryHashResult as y) ->
-            match y with
-            | Hash(value = yv) -> xv = yv
-            | _ -> false
-        | _ -> false
-
-    override x.GetHashCode() =
-        match x with
-        | OutputFileNotFound -> -1
-        | Hash(value = value) -> hash value
-
 type ProjectInfo =
     {
         FileInfo: FileInfo
         Files: ProjectFileInfo array
-        RegularCompilationDuration: TimeSpan
-        RegularTypeCheckDuration: TimeSpan
-        GraphCompilationDuration: TimeSpan
-        GraphTypeCheckDuration: TimeSpan
-        RegularBinaryHash: BinaryHashResult
-        GraphTypeCheckBinaryHash: BinaryHashResult
     }
 
 type ReportRow =
@@ -112,26 +74,6 @@ let mkReportMap (csvFile: FileInfo) =
 
 let getDuration (row: ReportRow) = row.Duration
 
-let findTotalTime (records: ReportRow array) =
-    // This isn't always present for some reason...
-    let fscCompliation =
-        records |> Array.tryFind (fun { Name = name } -> name = "FSC compilation")
-
-    match fscCompliation with
-    | Some record -> record.Duration
-    | None ->
-        let minTime = records |> Array.map (fun { StartTime = time } -> time) |> Array.min
-        let maxTime = records |> Array.map (fun { EndTime = time } -> time) |> Array.max
-        maxTime - minTime
-
-let findTypeCheck (csvFile: FileInfo) (records: ReportRow array) =
-    let record = records |> Array.tryFind (fun { Name = name } -> name = "Typecheck")
-
-    match record with
-    | Some record -> getDuration record
-    | None ->
-        printfn $"Did not find any 'TypeCheck' record in %A{csvFile}"
-        TimeSpan.Zero
 
 let findByNameAndFile (names: Set<string>) fileName (records: ReportRow array) =
     let record =
@@ -151,34 +93,20 @@ let findByNameAndFile (names: Set<string>) fileName (records: ReportRow array) =
         printfn $"Did not find any %A{names} duration for %s{fileName}"
         TimeSpan.Zero
 
-let getFileHash filename =
-    use sha256 = System.Security.Cryptography.SHA256.Create()
-    use stream = File.OpenRead(filename)
-    let hash = sha256.ComputeHash(stream)
-    BitConverter.ToString(hash).Replace("-", "")
-
-let processReports
-    (outputFlag: string option)
-    (regularBinaryHash: BinaryHashResult)
-    (graphBasedBinaryHash: BinaryHashResult)
-    (project: FileInfo)
-    =
+let processReports (outputFlag: string option) (project: FileInfo) =
     let regularCsvFile = Path.Combine(project.DirectoryName, "regular.csv") |> FileInfo
     let regularMap = mkReportMap regularCsvFile
 
-    let regularCompilationDuration, regularTypeCheckDuration =
-        findTotalTime regularMap, findTypeCheck regularCsvFile regularMap
-
     let fileIndexes =
         regularMap
-        |> Array.filter (fun r -> r.Name = "ParseAndCheckInputs.CheckOneInput")
+        |> Array.filter (fun r ->
+            r.Name = "CheckDeclarations.CheckOneSigFile"
+            || r.Name = "CheckDeclarations.CheckOneImplFile"
+        )
         |> Array.mapi (fun idx { FileName = fileName } -> idx, fileName.Value)
 
     let graphCsvFile = Path.Combine(project.DirectoryName, "graph.csv") |> FileInfo
     let graphMap = mkReportMap graphCsvFile
-
-    let graphCompilationDuration, graphTypeCheckDuration =
-        findTotalTime graphMap, findTypeCheck graphCsvFile graphMap
 
     let graphMarkdown =
         match outputFlag with
@@ -213,7 +141,22 @@ let processReports
     let regularTypeCheckTimings =
         fileIndexes
         |> Array.map (fun (idx, fileName) ->
-            idx, findByNameAndFile (Set.singleton "ParseAndCheckInputs.CheckOneInput") fileName regularMap
+            idx,
+            findByNameAndFile
+                (set [| "CheckDeclarations.CheckOneImplFile"; "CheckDeclarations.CheckOneSigFile" |])
+                fileName
+                regularMap
+        )
+        |> dict
+
+    let graphTypeCheckTimings =
+        fileIndexes
+        |> Array.map (fun (idx, fileName) ->
+            idx,
+            findByNameAndFile
+                (set [| "CheckDeclarations.CheckOneImplFile"; "CheckDeclarations.CheckOneSigFile" |])
+                fileName
+                graphMap
         )
         |> dict
 
@@ -233,27 +176,14 @@ let processReports
                 Idx = idx
                 FileName = fileName
                 RegularTypeCheckDuration = regularTypeCheckTimings.[idx]
-                GraphTypeCheckDuration =
-                    findByNameAndFile
-                        (set [| "CheckDeclarations.CheckOneImplFile"; "CheckDeclarations.CheckOneSigFile" |])
-                        fileName
-                        graphMap
+                GraphTypeCheckDuration = graphTypeCheckTimings.[idx]
                 DependencyCount = ownDependencies.Length
                 DependentCount = edges |> Seq.filter (fun (_, depOf) -> depOf = idx) |> Seq.length
                 LineCount = File.ReadLines(fileName) |> Seq.length
             }
         )
 
-    {
-        FileInfo = project
-        Files = files
-        RegularCompilationDuration = regularCompilationDuration
-        RegularTypeCheckDuration = regularTypeCheckDuration
-        GraphCompilationDuration = graphCompilationDuration
-        GraphTypeCheckDuration = graphTypeCheckDuration
-        RegularBinaryHash = regularBinaryHash
-        GraphTypeCheckBinaryHash = graphBasedBinaryHash
-    }
+    { FileInfo = project; Files = files }
 
 let exportProject (project: ProjectInfo) =
     let combinedPath = Path.Combine(project.FileInfo.DirectoryName, "combined.csv")
@@ -261,7 +191,7 @@ let exportProject (project: ProjectInfo) =
     let lines =
         [|
             yield
-                "Idx, FileName, RegularTypeCheckDuration, GraphTypeCheckDuration, DependencyCount, DependentCount, LineCount, WorldClockTime, AllDependencies"
+                "Idx, FileName, RegularTypeCheckDuration, GraphTypeCheckDuration, Delta (Graph - Regular), DependencyCount, DependentCount, LineCount"
             yield!
                 project.Files
                 |> Array.map (fun projectFileInfo ->
@@ -274,12 +204,16 @@ let exportProject (project: ProjectInfo) =
                     let timeSpan (ts: TimeSpan) =
                         ts.TotalSeconds.ToString("000.0000", System.Globalization.CultureInfo.InvariantCulture)
 
+                    let delta =
+                        projectFileInfo.GraphTypeCheckDuration.Subtract(projectFileInfo.RegularTypeCheckDuration)
+
                     sprintf
-                        "%d,%s,%s,%s,%d,%d,%d"
+                        "%d,%s,%s,%s,%s,%d,%d,%d"
                         projectFileInfo.Idx
                         fileName
                         (timeSpan projectFileInfo.RegularTypeCheckDuration)
                         (timeSpan projectFileInfo.GraphTypeCheckDuration)
+                        (timeSpan delta)
                         projectFileInfo.DependencyCount
                         projectFileInfo.DependentCount
                         projectFileInfo.LineCount
@@ -288,86 +222,26 @@ let exportProject (project: ProjectInfo) =
 
     File.WriteAllLines(combinedPath, lines)
 
-let sanitizeRspFile (rspFile: FileInfo) =
-    let filteredLines =
-        File.ReadAllLines rspFile.FullName
-        |> Seq.filter (fun line -> not (line.TrimStart().StartsWith("--warnaserror")))
-
-    File.WriteAllLines(rspFile.FullName, filteredLines)
-
 let getProject (project: FileInfo) : Task<ProjectInfo> =
     task {
         printfn $"Processing %s{project.FullName}"
-        let rspFile = FileInfo(Path.ChangeExtension(project.FullName, ".rsp"))
+        let! rspFile = createResponseFile project
 
-        if rspFile.Exists then
-            printfn "Skipping generating response file"
-        else
-            do!
-                Cli
-                    .Wrap("telplin")
-                    .WithArguments($"--only-record {project.Name} -- -c Release")
-                    .WithWorkingDirectory(project.DirectoryName)
-                    .WithStandardErrorPipe(PipeTarget.ToDelegate(printfn "%s"))
-                    .ExecuteAsync()
-                    .Task
-                :> Task
-            // Clean up any unwanted settings
-            sanitizeRspFile rspFile
+        // Create a copy to later add new signatures to.
+        let extraFile = Path.Combine(project.DirectoryName, "Extra.rsp") |> FileInfo
+
+        if not extraFile.Exists then
+            File.Copy(rspFile.FullName, extraFile.FullName, true)
+
         // Clean up old files
         for csvFile in project.Directory.EnumerateFiles("*.csv") do
             csvFile.Delete()
 
-        let rspFileName = rspFile.Name
         // The graph will be located next to the --output file
-        let outputFlag =
-            File.ReadAllLines(rspFile.FullName)
-            |> Array.tryPick (fun line ->
-                let line = line.Trim()
-
-                if not (line.StartsWith("-o:")) && not (line.StartsWith("--output:")) then
-                    None
-                else
-                    Some(line.Replace("--output:", "").Replace("-o:", ""))
-            )
-
-        let getBinaryHash () =
-            match outputFlag with
-            | None -> BinaryHashResult.OutputFileNotFound
-            | Some output ->
-                let outputFile = Path.Combine(rspFile.DirectoryName, output) |> FileInfo
-
-                if not outputFile.Exists then
-                    BinaryHashResult.OutputFileNotFound
-                else
-                    BinaryHashResult.Hash(getFileHash outputFile.FullName, outputFile.LastWriteTime)
-
-        do!
-            Cli
-                .Wrap(dotnet)
-                .WithArguments($"\"{fscDll}\" \"@{rspFileName}\" --times:regular.csv")
-                .WithWorkingDirectory(project.DirectoryName)
-                .WithStandardOutputPipe(PipeTarget.ToDelegate(printfn "%s"))
-                .WithStandardErrorPipe(PipeTarget.ToDelegate(printfn "%s"))
-                .ExecuteAsync()
-                .Task
-            :> Task
-
-        let regularHash = getBinaryHash ()
-
-        do!
-            Cli
-                .Wrap(dotnet)
-                .WithArguments(
-                    $"\"{fscDll}\" \"@{rspFileName}\" --parallelreferenceresolution --test:GraphBasedChecking --test:DumpCheckingGraph --test:ParallelOptimization --test:ParallelIlxGen --times:graph.csv"
-                )
-                .WithWorkingDirectory(project.DirectoryName)
-                .ExecuteAsync()
-                .Task
-            :> Task
-
-        let graphBasedHash = getBinaryHash ()
-        let projectInfo = processReports outputFlag regularHash graphBasedHash project
+        let outputFlag = tryFindOutputFlag rspFile
+        let! _ = compileFSharpProject rspFile "--times:regular.csv"
+        let! _ = compileFSharpProject rspFile $"{experimentalCompilerFlags} --times:graph.csv"
+        let projectInfo = processReports outputFlag project
         exportProject projectInfo
         return projectInfo
     }
@@ -410,37 +284,11 @@ let getProjects (slnFile: FileInfo) =
         return projectInfos
     }
 
-let solutionDelta projects =
-    let compareBy predicateName regularPredicate graphPredicate =
-        let regularTime = projects |> Array.sumBy regularPredicate
-        let graphTime = projects |> Array.sumBy graphPredicate
-        printfn $"Delta by %s{predicateName}: %3f{(regularTime - graphTime) / regularTime * 100.0}%%"
-
-    compareBy
-        "compilation"
-        (fun p -> p.RegularCompilationDuration.TotalMilliseconds)
-        (fun p -> p.GraphCompilationDuration.TotalMilliseconds)
-
-    compareBy
-        "type-checking"
-        (fun (p: ProjectInfo) -> p.RegularTypeCheckDuration.TotalMilliseconds)
-        (fun p -> p.GraphTypeCheckDuration.TotalMilliseconds)
-
-let processSolution (slnFile: FileInfo) =
-    task {
-        let! projects = getProjects slnFile
-        solutionDelta projects
-        return projects
-    }
-
-// let fantomasSln = FileInfo(@"C:\Users\nojaf\Projects\main-fantomas\fantomas.sln")
-// let fantomasProjects = processSolution fantomasSln |> Task.RunSynchronously
-// Array.iter exportProject fantomasProjects
-
 // @"C:\Users\nojaf\Projects\FsLexYacc\src\FsYacc\fsyacc.fsproj"
-@"C:\Users\nojaf\Projects\FsAutoComplete\src\FsAutoComplete.Core\FsAutoComplete.Core.fsproj"
-|> FileInfo
-|> getProject
-|> Task.RunSynchronously
-|> Array.singleton
-|> solutionDelta
+let fantomasCore =
+    @"C:\Users\nojaf\Projects\main-fantomas\src\Fantomas.Core\Fantomas.Core.fsproj"
+    |> FileInfo
+    |> getProject
+    |> Task.RunSynchronously
+
+fantomasCore.Files
