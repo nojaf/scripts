@@ -10,3 +10,9 @@ trimLines
 
 trimLines
     @"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\src\FSharp.Psi.Features\src\CodeCompletion\Rules\NamedUnionCaseFieldsPatRule.fs"
+
+trimLines
+    @"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\src\FSharp.Psi.Intentions\src\QuickFixes\UpdateMutabilityInSignatureFix.fs"
+
+trimLines
+    @"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\src\FSharp.Psi.Intentions\src\QuickFixes\UpdateAccessibilityInSignatureMemberFix.fs"

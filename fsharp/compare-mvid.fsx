@@ -6,15 +6,13 @@ open System
 open System.IO
 open System.Reflection.Metadata
 open System.Reflection.PortableExecutable
+open CliWrap
 
 let argsFile =
-    // FileInfo(@"C:\Users\nojaf\Projects\main-fantomas\src\Fantomas.Core\Fantomas.Core.args.txt")
-    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
-    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\FSharp.Core\FSharp.Core.args.txt")
-    // FileInfo(@"C:\Users\nojaf\Projects\graph-sample\GraphSample.args.txt")
-    FileInfo(@"C:\Users\nojaf\Projects\main-fsharp\src\Compiler\FSharp.Compiler.Service.args.txt")
-// FileInfo(@"C:\Users\nojaf\Projects\DeterminismSample\DeterminismSample.args.txt")
-// FileInfo(@"C:\Users\nojaf\Projects\main-fsharp\src\FSharp.Core\FSharp.Core.args.txt")
+    // FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\Compiler\FSharp.Compiler.Service.rsp")
+    FileInfo(@"C:\Users\nojaf\Projects\fsharp\src\FSharp.Core\FSharp.Core.rsp")
+
+assert argsFile.Exists
 
 let getMvid refDll =
     use embeddedReader = new PEReader(File.OpenRead refDll)
@@ -69,8 +67,6 @@ let getFileHash filename =
     let hash = sha256.ComputeHash(stream)
     BitConverter.ToString(hash).Replace("-", "")
 
-open CliWrap
-
 let ildasm dll =
     let output = Path.ChangeExtension(dll, ".txt")
 
@@ -79,12 +75,6 @@ let ildasm dll =
         .WithArguments($"/out:\"%s{output}\" \"%s{dll}\"")
         .ExecuteAsync()
         .Task.Wait()
-
-ildasm
-    @"C:\Users\nojaf\Projects\deterministic-fsharp-compiler\.repositories\fantomas\.results\Fantomas.Core\sequential-001\Fantomas.Core.dll"
-
-ildasm
-    @"C:\Users\nojaf\Projects\deterministic-fsharp-compiler\.repositories\fantomas\.results\Fantomas.Core\sequential-002\Fantomas.Core.dll"
 
 let total = 50
 
@@ -181,10 +171,11 @@ let compile (argsFile: FileInfo) (additionalArguments: string) (suffix: string) 
 
     let compilationResult =
         Cli
-            // .Wrap(@"C:\Users\nojaf\Projects\main-fsharp\artifacts\bin\fsc\Release\net7.0\win-x64\publish\fsc.exe")
             .Wrap(@"C:\Users\nojaf\Projects\fsharp\artifacts\bin\fsc\Release\net7.0\win-x64\publish\fsc.exe")
+            // .Wrap(@"C:\Users\nojaf\Projects\fsharp\artifacts\bin\fsc\Debug\net7.0\win-x64\publish\fsc.exe")
             .WithWorkingDirectory(argsFile.DirectoryName)
-            .WithArguments($"\"{args}\" %s{additionalArguments}") // --debug-
+            .WithStandardErrorPipe(PipeTarget.ToDelegate(printfn "%s"))
+            .WithArguments($"\"{args}\" %s{additionalArguments}")
             .ExecuteAsync()
             .Task.Result
 
@@ -310,10 +301,7 @@ let runs argsFile =
 
             try
                 let result =
-                    compile
-                        argsFile
-                        "--test:GraphBasedChecking --test:DumpCheckingGraph --debug:portable --test:DumpSignatureData --test:ParallelIlxGen"
-                        $"%02i{idx}"
+                    compile argsFile "--test:GraphBasedChecking --test:DumpCheckingGraph" $"%02i{idx}"
 
                 match prevResult with
                 | CompilationResult.Unstable _
