@@ -1,8 +1,14 @@
 ﻿// Configuration
 /// The path to the dotnet executable of the preview SDK
 let dotnet = @"C:\Program Files\dotnet\dotnet.exe"
+
 /// The path to the fsc.dll of the preview SDK
-let fscDll = @"C:\Program Files\dotnet\sdk\7.0.400-preview.23272.51\FSharp\fsc.dll"
+let fscPath =
+    {|
+        ``8.0.100-rc.1`` = @"C:\Program Files\dotnet\sdk\8.0.100-rc.1.23455.8\FSharp\fsc.dll"
+        localRelease = @"C:\Users\nojaf\Projects\fsharp\artifacts\bin\fsc\Release\net8.0\win-x64\publish\fsc.dll"
+        mainFSharp = @"C:\Users\nojaf\Projects\main-fsharp\artifacts\bin\fsc\Release\net8.0\win-x64\publish\fsc.dll"
+    |}
 
 #r "nuget: CliWrap, 3.6.0"
 #r "System.Security.Cryptography"
@@ -89,12 +95,12 @@ let warn = "--warn:0 --nowarn:3370 --nowarn:3520 --nowarn:3365"
 
 /// Compile F# project using a response file.
 /// <remark>Use --warn:0</remark>
-let compileFSharpProject (responseFile: FileInfo) (flags: string) : Task<TimeSpan> =
+let compileFSharpProjectAux dotnet fscDll (responseFile: FileInfo) (flags: string) : Task<TimeSpan> =
     task {
         let! result =
             Cli
                 .Wrap(dotnet)
-                .WithArguments($"\"{fscDll}\" \"@{responseFile.Name}\" --nologo {warn} {flags}")
+                .WithArguments($"\"%s{fscDll}\" \"@{responseFile.Name}\" --nologo {warn} {flags}")
                 .WithWorkingDirectory(responseFile.DirectoryName)
                 .WithStandardOutputPipe(PipeTarget.ToDelegate(printfn "%s"))
                 .WithStandardErrorPipe(PipeTarget.ToDelegate(printfn "%s"))
@@ -103,6 +109,11 @@ let compileFSharpProject (responseFile: FileInfo) (flags: string) : Task<TimeSpa
 
         return result.RunTime
     }
+
+/// Compile F# project using a response file.
+/// <remark>Use --warn:0</remark>
+let compileFSharpProject (responseFile: FileInfo) (flags: string) : Task<TimeSpan> =
+    compileFSharpProjectAux dotnet fscPath.``8.0.100-rc.1`` responseFile flags
 
 /// Contains all the new compiler flags.
 /// --test:GraphBasedChecking, --test:ParallelOptimization, ...

@@ -15,7 +15,7 @@ let mkTest testName (implContent: string) (signatureContent: string) =
     File.WriteAllText(targetFolder </> $"{testName}.fs", implContent)
     File.WriteAllText(targetFolder </> $"{testName}.fs.gold", implContent)
     File.WriteAllText(targetFolder </> $"{testName}.fsi", signatureContent)
-    ClipboardService.SetText($"[<Test>] member x.``{testName}`` () = x.DoNamedTestWithSignature()")
+    TextCopy.ClipboardService.SetText($"[<Test>] member x.``{testName}`` () = x.DoNamedTestWithSignature()")
 
 mkTest
     "Attribute in implementation - 03"

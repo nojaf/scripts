@@ -292,3 +292,9 @@ let fantomasCore =
     |> Task.RunSynchronously
 
 fantomasCore.Files
+
+
+@"C:\Users\nojaf\Projects\Graphoscope\src\Graphoscope\Graphoscope.fsproj"
+|> FileInfo
+|> getProject
+|> Task.RunSynchronously

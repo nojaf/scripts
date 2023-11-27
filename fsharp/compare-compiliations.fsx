@@ -103,6 +103,69 @@ let benchmarkProject (numberOfRuns: int) (rspFile: FileInfo) : Task<BenchmarkRes
             }
     }
 
-FileInfo(@"C:\Users\nojaf\Projects\main-fantomas\src\Fantomas.Core\Fantomas.Core.rsp")
-|> benchmarkProject 5
+let benchmarkProjectTypeChecking fscDll (numberOfRuns: int) (rspFile: FileInfo) : Task<TimeSpan> =
+    task {
+        assert rspFile.Exists
+        let extraFile = Path.Combine(rspFile.DirectoryName, "Extra.rsp") |> FileInfo
+        assert extraFile.Exists
+
+        let totalRunCount = 3 * numberOfRuns
+        let results = ResizeArray<TimeSpan> totalRunCount
+
+        let csv = Path.Combine(rspFile.DirectoryName, "report.csv") |> FileInfo
+
+        for idx in [ 1..numberOfRuns ] do
+            if csv.Exists then
+                csv.Delete()
+
+            let! _ = compileFSharpProjectAux dotnet fscDll rspFile experimentalCompilerFlags
+
+            let! lines = File.ReadAllLinesAsync csv.FullName
+
+            let typeCheckTime =
+                lines
+                |> Array.pick (fun line ->
+                    if not (line.Trim().StartsWith("Typecheck")) then
+                        None
+                    else
+
+                    let columns = line.Split(',')
+                    let duration = columns.[3] |> float |> TimeSpan.FromSeconds
+                    Some duration
+                )
+
+            printfn $"Type-check %i{idx} in %A{typeCheckTime}"
+            results.Add(typeCheckTime)
+
+        let average =
+            let timings = results |> Seq.map (fun t -> t.TotalMilliseconds) |> Seq.toArray
+            let interval = Signal.Outliers.tukey 1.5 timings
+
+            timings
+            |> Seq.filter (fun t -> Intervals.liesInInterval t interval)
+            |> Seq.average
+            |> TimeSpan.FromMilliseconds
+
+        return average
+    }
+
+let compilerProjRsp =
+    @"C:\Users\nojaf\Projects\fantomas\src\Fantomas.Core\Fantomas.Core.rsp"
+    |> FileInfo
+
+benchmarkProjectTypeChecking fscPath.mainFSharp 10 compilerProjRsp
 |> Task.RunSynchronously
+|> printfn "MAIN: %A"
+
+benchmarkProjectTypeChecking fscPath.localRelease 10 compilerProjRsp
+|> Task.RunSynchronously
+|> printfn "LOCAL: %A"
+
+// FileInfo(@"C:\Users\nojaf\Projects\main-fantomas\src\Fantomas.Core\Fantomas.Core.rsp")
+// |> benchmarkProject 5
+// |> Task.RunSynchronously
+
+(*
+MAIN: 00:00:04.5423599
+LOCAL: 00:00:04.5436700
+*)
