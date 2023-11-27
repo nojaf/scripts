@@ -60,6 +60,19 @@ let outputDirectory =
 
 outputDirectory.Create()
 
+let dotnet (arguments: string) =
+    Cli
+        .Wrap("dotnet")
+        .WithWorkingDirectory(outputDirectory.FullName)
+        .WithArguments(arguments)
+        .ExecuteAsync()
+        .Task.Result
+    |> ignore
+
+dotnet "new tool-manifest"
+dotnet "tool install fable"
+
+
 let projectName = results.TryGetResult <@ Name @> |> Option.defaultValue "App"
 let fsprojFile = outputDirectory.FullName </> $"%s{projectName}.fsproj"
 
@@ -96,14 +109,7 @@ JS.console.log "Works!"
 """
 )
 
-let addPackage packageName =
-    Cli
-        .Wrap("dotnet")
-        .WithWorkingDirectory(outputDirectory.FullName)
-        .WithArguments($"add package %s{packageName}")
-        .ExecuteAsync()
-        .Task.Result
-    |> ignore
+let addPackage packageName = dotnet $"add package %s{packageName}"
 
 addPackage "Fable.Core"
 
@@ -114,9 +120,6 @@ for package in packages do
     | Some aliasPackages -> List.iter addPackage aliasPackages
     | None -> addPackage package
 
-Cli
-    .Wrap("dotnet")
-    .WithWorkingDirectory(outputDirectory.FullName)
-    .WithArguments("restore")
+dotnet "restore"
 
 printfn $"New Fable project generated at %s{fsprojFile}"
