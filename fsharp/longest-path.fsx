@@ -1,64 +1,52 @@
-﻿// Configuration
-
-open System.Collections.Concurrent
-open System.Collections.Generic
-
-let dotnet = @"C:\Program Files\dotnet\dotnet.exe"
-let fscDll = @"C:\Program Files\dotnet\sdk\7.0.400-preview.23260.7\FSharp\fsc.dll"
-
-#r "nuget: System.Collections.Immutable, 7.0.0"
+﻿#r @"C:\Users\nojaf\Projects\Graphoscope\src/Graphoscope/bin/Debug/netstandard2.0/Graphoscope.dll"
+#load "./common.fsx"
 
 open System
-open System.Collections.Immutable
+open System.Collections.Generic
 open System.IO
+open System.Text.RegularExpressions
+open Graphoscope
+open Graphoscope.Measures
+open Common
 
 // Add the printer to F# FSI
 fsi.AddPrinter(fun (ts: TimeSpan) -> $"%02d{ts.Minutes}:%02d{ts.Seconds}.%03d{ts.Milliseconds}")
 
-module Seq =
-    let inline toImmutableArray (values: 'a seq) : ImmutableArray<'a> = ImmutableArray.CreateRange(values)
+type LongestPathResult =
+    {
+        LongestPath: NodeInfo list
+        Duration: float
+        Graph: FGraph<int, int, TimeSpan>
+        FileNames: IDictionary<int, string>
+    }
 
-type Path = ImmutableHashSet<int>
-type PathWithTimings = ImmutableHashSet<int * TimeSpan>
+    member this.SlowestFile =
+        this.LongestPath
+        |> List.take (this.LongestPath.Length - 1)
+        |> List.maxBy (fun n -> n.Duration.TotalMilliseconds)
 
-let outputFlag (rspFile: FileInfo) =
-    File.ReadAllLines(rspFile.FullName)
-    |> Array.tryPick (fun line ->
-        let line = line.Trim()
+    member this.MermaidStyle =
+        this.LongestPath
+        |> List.map (fun n -> $"style %i{n.Idx} fill:#f64747,color:#FFF")
+        |> String.concat "\n"
+        |> sprintf "%%%% Longest path styling\n%s"
 
-        if not (line.StartsWith("-o:")) && not (line.StartsWith("--output:")) then
-            None
-        else
-            Some(line.Replace("--output:", "").Replace("-o:", ""))
-    )
+and NodeInfo =
+    {
+        Idx: int
+        FileName: string
+        Duration: TimeSpan
+    }
 
-let memoize f =
-    let dict = Dictionary<_, _>()
-
-    fun c ->
-        let exist, value = dict.TryGetValue c
-
-        match exist with
-        | true -> value
-        | _ ->
-            let value = f c
-            dict.Add(c, value)
-            value
-
-let processProject (fsprojFile: FileInfo) : ImmutableArray<PathWithTimings> =
+let processProject (fsprojFile: FileInfo) =
     // Create the rsp file
     let rspFile = Path.ChangeExtension(fsprojFile.FullName, ".rsp") |> FileInfo
 
     if not rspFile.Exists then
         failwith $"No rsp file was found for {fsprojFile.FullName}"
 
-    let timingCsv = Path.Combine(fsprojFile.DirectoryName, "regular.csv") |> FileInfo
-
-    if not timingCsv.Exists then
-        failwith "No regular.csv file was found"
-
     let graph =
-        match outputFlag rspFile with
+        match tryFindOutputFlag rspFile with
         | None -> failwith $"no --output flag found in %s{rspFile.FullName}"
         | Some outputFlag ->
 
@@ -67,10 +55,34 @@ let processProject (fsprojFile: FileInfo) : ImmutableArray<PathWithTimings> =
 
     assert graph.Exists
 
+    let graphLines = File.ReadAllLines(graph.FullName)
+
+    let fileNamesMap =
+        let parseInput (input: string) =
+            let pattern = @"\s*(\d+)\[""(.+?)""\]"
+            let m = Regex.Match(input, pattern)
+
+            if m.Success then
+                let index = int m.Groups.[1].Value
+                let name = m.Groups.[2].Value
+                Some(index, name)
+            else
+                None
+
+        graphLines |> Array.choose parseInput |> dict
+
+    let timingCsv = Path.Combine(fsprojFile.DirectoryName, "graph.csv") |> FileInfo
+
+    if not timingCsv.Exists then
+        failwith $"No timing csv found at %s{timingCsv.FullName}"
+
     let timings =
         File.ReadAllLines(timingCsv.FullName)
         |> Array.choose (fun line ->
-            if not (line.StartsWith("ParseAndCheckInputs.CheckOneInput")) then
+            if
+                not (line.StartsWith("CheckDeclarations.CheckOneImplFile", StringComparison.Ordinal))
+                && not (line.StartsWith("CheckDeclarations.CheckOneSigFile", StringComparison.Ordinal))
+            then
                 None
             else
 
@@ -84,7 +96,7 @@ let processProject (fsprojFile: FileInfo) : ImmutableArray<PathWithTimings> =
     let lastIndex = timings.Keys |> Seq.max
 
     let allLinks =
-        File.ReadAllLines(graph.FullName)
+        graphLines
         |> Array.choose (fun line ->
             if not (line.Contains("-->")) then
                 None
@@ -99,75 +111,55 @@ let processProject (fsprojFile: FileInfo) : ImmutableArray<PathWithTimings> =
     let allDest = allLinks |> Array.map snd |> set
 
     // Start with dep free nodes
-    let depFreeNodes =
+    let startNodes =
         [| 0..lastIndex |]
         |> Array.Parallel.choose (fun idx -> if allDest.Contains idx then None else Some idx)
         |> set
 
-    printfn "Start nodes: %A" depFreeNodes
-    let pathCache = ConcurrentDictionary<PathWithTimings, PathWithTimings array>()
+    let virtualStartNode = -1
 
-    let rec traverse (path: PathWithTimings) (src: int) : PathWithTimings array =
-        let currentPath =
-            let timing = timings.[src]
-            let segment = src, timing
-            path.Add segment
+    let fGraph =
+        FGraph.empty
+        |> FGraph.addNode virtualStartNode virtualStartNode
+        |> FGraph.addNodes (Array.init timings.Count (fun i -> i, i))
+        |> FGraph.addEdges
+            [
+                for sn in startNodes do
+                    yield (virtualStartNode, sn, timings.[sn])
 
-        pathCache.GetOrAdd(
-            currentPath,
-            fun path ->
-                let destinations =
-                    allLinks |> Array.choose (fun (s, d) -> if src <> s then None else Some d)
+                for src, dest in allLinks do
+                    yield (src, dest, timings.[dest])
+            ]
 
-                if Array.isEmpty destinations then
-                    Array.singleton path
-                else
-                    destinations |> Array.collect (traverse path)
+    let longestPath, duration =
+        LongestPath.getLongestPathOfFGraph virtualStartNode (fun (t: TimeSpan) -> t.TotalMilliseconds) fGraph
+
+    let longestPath =
+        longestPath
+        |> List.filter (fun idx -> idx > -1)
+        |> List.map (fun idx ->
+            {
+                Idx = idx
+                FileName = fileNamesMap.[idx]
+                Duration = timings.[idx]
+
+            }
         )
 
-    depFreeNodes
-    |> Seq.collect (traverse PathWithTimings.Empty)
-    |> fun allPaths -> allPaths.ToImmutableArray()
+    {
+        LongestPath = longestPath
+        Duration = duration
+        Graph = fGraph
+        FileNames = fileNamesMap
+    }
 
-let totalPathTime (path: PathWithTimings) =
-    (TimeSpan.Zero, path) ||> Seq.fold (fun acc (_, duration) -> acc + duration)
+let project =
+    @"C:\Users\nojaf\Projects\Fable\src\Fable.Cli\Fable.Cli.fsproj"
+    |> FileInfo
+    |> processProject
 
-let printPath (path: PathWithTimings) : unit =
-    let sum = totalPathTime path
+project.LongestPath
+project.Duration
+project.SlowestFile
 
-    let path =
-        path
-        |> Seq.sortByDescending snd
-        |> Seq.map (fun (idx, timing) ->
-            let percentage = timing.TotalMilliseconds / sum.TotalMilliseconds * 100.
-            $"%i{idx} (%.2f{Math.Round(percentage, 2)}%%)"
-        )
-        |> String.concat ", "
-
-    printfn $"{sum}: %s{path}"
-
-// This doesn't check if the signatureCandidates already is a sig file.
-let whatIf (signatureCandidates: int seq) (path: PathWithTimings) : PathWithTimings =
-    let signatureCandidates = set signatureCandidates
-
-    path
-    |> Seq.map (fun (idx, timing) ->
-        if signatureCandidates.Contains idx then
-            idx, TimeSpan.Zero
-        else
-            idx, timing
-    )
-    |> ImmutableHashSet.CreateRange
-
-let FsAutoComplete =
-    processProject (
-        FileInfo @"C:\Users\nojaf\Projects\FsAutoComplete\src\FsAutoComplete.Core\FsAutoComplete.Core.fsproj"
-    )
-
-FsAutoComplete
-|> Seq.map (whatIf [ 35; 19 ]) //; 5; 19; 33; 27 ])
-|> Seq.sortByDescending totalPathTime
-|> Seq.take 10
-|> Seq.iter printPath
-
-FsAutoComplete.Length
+printfn "%s" project.MermaidStyle

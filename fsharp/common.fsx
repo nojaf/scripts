@@ -6,6 +6,7 @@ let dotnet = @"C:\Program Files\dotnet\dotnet.exe"
 let fscPath =
     {|
         ``8.0.100-rc.1`` = @"C:\Program Files\dotnet\sdk\8.0.100-rc.1.23455.8\FSharp\fsc.dll"
+        ``8.0.100`` = @"C:\Program Files\dotnet\sdk\8.0.100\FSharp\fsc.dll"
         localRelease = @"C:\Users\nojaf\Projects\fsharp\artifacts\bin\fsc\Release\net8.0\win-x64\publish\fsc.dll"
         mainFSharp = @"C:\Users\nojaf\Projects\main-fsharp\artifacts\bin\fsc\Release\net8.0\win-x64\publish\fsc.dll"
     |}
@@ -113,7 +114,7 @@ let compileFSharpProjectAux dotnet fscDll (responseFile: FileInfo) (flags: strin
 /// Compile F# project using a response file.
 /// <remark>Use --warn:0</remark>
 let compileFSharpProject (responseFile: FileInfo) (flags: string) : Task<TimeSpan> =
-    compileFSharpProjectAux dotnet fscPath.``8.0.100-rc.1`` responseFile flags
+    compileFSharpProjectAux dotnet fscPath.``8.0.100`` responseFile flags
 
 /// Contains all the new compiler flags.
 /// --test:GraphBasedChecking, --test:ParallelOptimization, ...
