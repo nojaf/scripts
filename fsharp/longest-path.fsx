@@ -154,7 +154,7 @@ let processProject (fsprojFile: FileInfo) =
     }
 
 let project =
-    @"C:\Users\nojaf\Projects\Fable\src\Fable.Cli\Fable.Cli.fsproj"
+    @"C:\Users\nojaf\Projects\Fable\src\Fable.Transforms\Fable.Transforms.fsproj"
     |> FileInfo
     |> processProject
 
@@ -163,3 +163,5 @@ project.Duration
 project.SlowestFile
 
 printfn "%s" project.MermaidStyle
+
+project.SlowestFile
