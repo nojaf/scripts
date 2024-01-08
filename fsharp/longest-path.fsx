@@ -41,6 +41,8 @@ and NodeInfo =
         Duration: TimeSpan
     }
 
+fsi.AddPrinter(fun (lpr: LongestPathResult) -> $"%A{lpr.Duration}")
+
 /// <param name="projectDirectory">Directory where the fsproj resides.</param>
 let processReportAndGraph (projectDirectory: DirectoryInfo) (timingCsv: FileInfo) (graph: FileInfo) =
     let graphLines = File.ReadAllLines(graph.FullName)
@@ -185,16 +187,24 @@ let processProject (fsprojFile: FileInfo) =
 //             @"C:\Users\nojaf\Projects\fsac-top-level-types\src\FsAutoComplete.Core\obj\Debug\net6.0\FsAutoComplete.Core.graph.md"
 //         ))
 
+// let project =
+//     processReportAndGraph
+//         (DirectoryInfo(@"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\src\FSharp\FSharp.Common"))
+//         (FileInfo(@"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\src\FSharp\FSharp.Common\report.csv"))
+//         (FileInfo(
+//             @"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\src\FSharp\FSharp.Common\obj\Debug\net472\JetBrains.ReSharper.Plugins.FSharp.Common.graph.md"
+//         ))
+
 let project =
     processReportAndGraph
-        (DirectoryInfo(@"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\src\FSharp\FSharp.Common"))
-        (FileInfo(@"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\src\FSharp\FSharp.Common\report.csv"))
+        (DirectoryInfo(@"C:\Users\nojaf\Projects\Fable\src\Fable.Transforms"))
+        (FileInfo(@"C:\Users\nojaf\Projects\Fable\src\Fable.Transforms\report.csv"))
         (FileInfo(
-            @"C:\Users\nojaf\Projects\resharper-fsharp\ReSharper.FSharp\src\FSharp\FSharp.Common\obj\Debug\net472\JetBrains.ReSharper.Plugins.FSharp.Common.graph.md"
+            @"C:\Users\nojaf\Projects\Fable\src\Fable.Transforms\obj\Debug\netstandard2.0\Fable.Transforms.graph.md"
         ))
 
 project.LongestPath
-|> List.sortByDescending (fun ni -> ni.Duration.TotalMilliseconds)
+// |> List.sortByDescending (fun ni -> ni.Duration.TotalMilliseconds)
 |> List.iter (fun ni -> printfn "%A | %s" ni.Duration ni.FileName)
 
 List.last project.LongestPath
