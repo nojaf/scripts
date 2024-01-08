@@ -1,5 +1,5 @@
 ﻿#r "nuget: FSharp.Data, 6.3.0"
-#r @"C:\Users\nojaf\Projects\Graphoscope\src/Graphoscope/bin/Debug/netstandard2.0/Graphoscope.dll"
+#r "nuget: Graphoscope, 0.6.0-preview.1"
 #load "./common.fsx"
 
 open System
@@ -7,7 +7,6 @@ open System.Collections.Generic
 open System.IO
 open System.Text.RegularExpressions
 open FSharp.Data
-open FSharp.Data.CsvExtensions
 open Graphoscope
 open Graphoscope.Measures
 open Common
@@ -197,6 +196,8 @@ let project =
 project.LongestPath
 |> List.sortByDescending (fun ni -> ni.Duration.TotalMilliseconds)
 |> List.iter (fun ni -> printfn "%A | %s" ni.Duration ni.FileName)
+
+List.last project.LongestPath
 
 project.Duration
 project.SlowestFile
