@@ -1,5 +1,6 @@
-﻿#r "nuget: CliWrap, 3.6.4"
-#r "nuget: Argu, 6.1.1"
+﻿#r "nuget: CliWrap, 3.6.6"
+#r "nuget: CliFx, 2.3.5"
+#r "nuget: Argu, 6.2.1"
 
 open System
 open System.IO
@@ -22,9 +23,8 @@ let aliases =
 
 type Arguments =
     | [<Unique; AltCommandLine "-n">] Name of string
-    | Packages of string list
-    | [<Unique; AltCommandLine "-o">] Output of string
-    | [<Unique>] Debug
+    | [<AltCommandLine "-p">] Packages of string
+    | [<Unique; MainCommand>] Output of string
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -34,7 +34,6 @@ type Arguments =
                 let aliasNames = aliases.Keys |> String.concat ", "
                 $"Potential NuGet packages to add. Could also be an alias (%s{aliasNames})"
             | Output _ -> "Output directory, defaults to pwd"
-            | Debug -> "Print debug messages"
 
 let errorHandler =
     ProcessExiter(
@@ -61,6 +60,8 @@ let outputDirectory =
 outputDirectory.Create()
 
 let dotnet (arguments: string) =
+    printfn $"dotnet %s{arguments}"
+
     Cli
         .Wrap("dotnet")
         .WithWorkingDirectory(outputDirectory.FullName)
@@ -72,7 +73,6 @@ let dotnet (arguments: string) =
 dotnet "new tool-manifest"
 dotnet "tool install fable"
 
-
 let projectName = results.TryGetResult <@ Name @> |> Option.defaultValue "App"
 let fsprojFile = outputDirectory.FullName </> $"%s{projectName}.fsproj"
 
@@ -81,21 +81,17 @@ let fsprojContents =
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="App.fs" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="7.0.400" />
-  </ItemGroup>
-
 </Project>
 """
 
-File.WriteAllText(outputDirectory.FullName </> "App.fsproj", fsprojContents)
+File.WriteAllText(outputDirectory.FullName </> $"%s{projectName}.fsproj", fsprojContents)
 
 let appFile = outputDirectory.FullName </> "App.fs"
 
@@ -113,7 +109,7 @@ let addPackage packageName = dotnet $"add package %s{packageName}"
 
 addPackage "Fable.Core"
 
-let packages = results.TryGetResult <@ Packages @> |> Option.defaultValue []
+let packages = results.GetResults <@ Packages @>
 
 for package in packages do
     match Map.tryFind package aliases with
